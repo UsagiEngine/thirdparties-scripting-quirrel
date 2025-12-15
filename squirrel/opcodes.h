@@ -2,6 +2,8 @@
 #ifndef _SQOPCODES_H_
 #define _SQOPCODES_H_
 
+#include "sqconfig.h"
+
 #define MAX_FUNC_STACKSIZE 0xFF
 #define MAX_LITERALS ((SQInteger)0x7FFFFFFF)
 

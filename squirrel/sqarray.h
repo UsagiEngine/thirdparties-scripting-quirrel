@@ -2,6 +2,7 @@
 #ifndef _SQARRAY_H_
 #define _SQARRAY_H_
 
+#include "sqobject.h"
 #include "vartrace.h"
 
 struct SQArray : public CHAINABLE_OBJ

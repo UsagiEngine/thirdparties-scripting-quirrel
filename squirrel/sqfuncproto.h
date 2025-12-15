@@ -3,6 +3,7 @@
 #define _SQFUNCTION_H_
 
 #include "opcodes.h"
+#include "sqobject.h"
 
 enum SQOuterType {
     otLOCAL = 0,

@@ -2,7 +2,12 @@
 #ifndef _SQUTILS_H_
 #define _SQUTILS_H_
 
+// For God's sake, if you love `assert`, include the fucking header.
+// (Mainly used in `sqobject.h`/`sqvm.h`)
+#include <assert.h>
 #include <memory>
+
+#include "squirrel.h"
 
 typedef struct SQAllocContextT * SQAllocContext;
 

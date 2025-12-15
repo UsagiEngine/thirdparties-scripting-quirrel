@@ -2,6 +2,8 @@
 #ifndef _SQCLASS_H_
 #define _SQCLASS_H_
 
+#include "sqobject.h"
+
 struct SQInstance;
 
 struct SQClassMember {
