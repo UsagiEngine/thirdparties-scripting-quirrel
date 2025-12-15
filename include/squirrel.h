@@ -44,9 +44,8 @@ extern "C" {
 #endif
 #endif
 
-
-#define SQTrue  (1)
-#define SQFalse (0)
+constexpr static inline bool SQTrue = true;
+constexpr static inline bool SQFalse = false;
 
 struct SQVM;
 struct SQTable;
@@ -153,8 +152,10 @@ typedef enum tagSQObjectType{
 
 typedef uint8_t SQObjectFlags;
 
-#define ISREFCOUNTED(t) ((t)&SQOBJECT_REF_COUNTED)
-
+constexpr bool sq_is_ref_counted(const SQObjectType t)
+{
+    return t & SQOBJECT_REF_COUNTED;
+}
 
 typedef union tagSQObjectValue
 {
@@ -282,6 +283,9 @@ typedef struct tagSQModuleImport {
 
 
 /*vm*/
+constexpr bool sq_is_base_stack_index(const SQInteger idx) { return idx >= 0; }
+constexpr bool sq_is_top_stack_index(const SQInteger idx) { return idx < 0; }
+
 SQUIRREL_API HSQUIRRELVM sq_open(SQInteger initialstacksize);
 SQUIRREL_API HSQUIRRELVM sq_newthread(HSQUIRRELVM friendvm, SQInteger initialstacksize);
 SQUIRREL_API void sq_seterrorhandler(HSQUIRRELVM v);
@@ -509,34 +513,39 @@ SQUIRREL_API void sq_enablesyntaxwarnings(bool on);
 SQUIRREL_API void sq_checkglobalnames(HSQUIRRELVM v);
 SQUIRREL_API void sq_mergeglobalnames(const HSQOBJECT *bindings);
 
+/* Type & Flag Utils */
+#ifdef __cplusplus
+}
+#endif
+constexpr auto sq_isnumeric(auto &&o) { return o._type & SQOBJECT_NUMERIC; }
+constexpr auto sq_istable(auto &&o) { return o._type == OT_TABLE; }
+constexpr auto sq_isarray(auto &&o) { return o._type == OT_ARRAY; }
+constexpr auto sq_isfunction(auto &&o) { return o._type == OT_FUNCPROTO; }
+constexpr auto sq_isclosure(auto &&o) { return o._type == OT_CLOSURE; }
+constexpr auto sq_isgenerator(auto &&o) { return o._type == OT_GENERATOR; }
+constexpr auto sq_isnativeclosure(auto &&o){ return o._type==OT_NATIVECLOSURE; }
+constexpr auto sq_isstring(auto &&o) { return o._type == OT_STRING; }
+constexpr auto sq_isinteger(auto &&o) { return o._type == OT_INTEGER; }
+constexpr auto sq_isfloat(auto &&o) { return o._type == OT_FLOAT; }
+constexpr auto sq_isuserpointer(auto &&o) { return o._type == OT_USERPOINTER; }
+constexpr auto sq_isuserdata(auto &&o) { return o._type == OT_USERDATA; }
+constexpr auto sq_isthread(auto &&o) { return o._type == OT_THREAD; }
+constexpr auto sq_isnull(auto &&o) { return o._type == OT_NULL; }
+constexpr auto sq_isclass(auto &&o) { return o._type == OT_CLASS; }
+constexpr auto sq_isinstance(auto &&o) { return o._type == OT_INSTANCE; }
+constexpr auto sq_isbool(auto &&o) { return o._type == OT_BOOL; }
+constexpr auto sq_isweakref(auto &&o) { return o._type == OT_WEAKREF; }
+constexpr auto sq_type(auto &&o) { return o._type; }
+constexpr auto sq_objflags(auto &&o) { return o._flags; }
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-/*UTILITY MACRO*/
-#define sq_isnumeric(o) ((o)._type&SQOBJECT_NUMERIC)
-#define sq_istable(o) ((o)._type==OT_TABLE)
-#define sq_isarray(o) ((o)._type==OT_ARRAY)
-#define sq_isfunction(o) ((o)._type==OT_FUNCPROTO)
-#define sq_isclosure(o) ((o)._type==OT_CLOSURE)
-#define sq_isgenerator(o) ((o)._type==OT_GENERATOR)
-#define sq_isnativeclosure(o) ((o)._type==OT_NATIVECLOSURE)
-#define sq_isstring(o) ((o)._type==OT_STRING)
-#define sq_isinteger(o) ((o)._type==OT_INTEGER)
-#define sq_isfloat(o) ((o)._type==OT_FLOAT)
-#define sq_isuserpointer(o) ((o)._type==OT_USERPOINTER)
-#define sq_isuserdata(o) ((o)._type==OT_USERDATA)
-#define sq_isthread(o) ((o)._type==OT_THREAD)
-#define sq_isnull(o) ((o)._type==OT_NULL)
-#define sq_isclass(o) ((o)._type==OT_CLASS)
-#define sq_isinstance(o) ((o)._type==OT_INSTANCE)
-#define sq_isbool(o) ((o)._type==OT_BOOL)
-#define sq_isweakref(o) ((o)._type==OT_WEAKREF)
-#define sq_type(o) ((o)._type)
-#define sq_objflags(o) ((o)._flags)
+constexpr static inline SQRESULT SQ_OK = 0;
+constexpr static inline SQRESULT SQ_ERROR = -1;
 
-#define SQ_OK (0)
-#define SQ_ERROR (-1)
-
-#define SQ_FAILED(res) ((res)<0)
-#define SQ_SUCCEEDED(res) ((res)>=0)
+constexpr bool SQ_FAILED(const SQRESULT res) { return res < 0; }
+constexpr bool SQ_SUCCEEDED(const SQRESULT res) { return res >= 0; }
 
 #if defined(__GNUC__) || defined(__clang__)
 # define SQ_UNUSED_ARG(x) x __attribute__((__unused__))
@@ -548,7 +557,6 @@ SQUIRREL_API void sq_mergeglobalnames(const HSQOBJECT *bindings);
 } /*extern "C"*/
 #endif
 
-
 /*
   Removed SQObjectPtr overload to forbid dangerous cast to SQObjectPtr.
   Passing SQObjectPtr instead of SQObject to some quirrel API functions can cause
@@ -556,6 +564,8 @@ SQUIRREL_API void sq_mergeglobalnames(const HSQOBJECT *bindings);
   This function is explicitly deleted to prevent such errors.
 */
 struct SQObjectPtr;
-SQUIRREL_API SQRESULT sq_getstackobj(HSQUIRRELVM v,SQInteger idx, SQObjectPtr *po) = delete;
+SQUIRREL_API SQRESULT sq_getstackobj(
+    HSQUIRRELVM v, SQInteger idx, SQObjectPtr * po
+) = delete;
 
 #endif /*_SQUIRREL_H_*/

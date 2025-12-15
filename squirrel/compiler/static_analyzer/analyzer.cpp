@@ -3558,7 +3558,7 @@ void CheckerVisitor::checkExternalField(const GetFieldExpr *acc) {
     return;
   }
 
-  __AddRef(val._type, val._unVal);
+  sq_try_add_ref(val._type, val._unVal);
   astValues[acc] = addExternalValue(val, acc);
 }
 

@@ -222,7 +222,14 @@ struct AutoDec{
     SQInteger *_n;
 };
 
-inline SQObjectPtr &stack_get(HSQUIRRELVM v,SQInteger idx){return ((idx>=0)?(v->GetAt(idx+v->_stackbase-1)):(v->GetUp(idx)));}
+inline SQObjectPtr & stack_get(const HSQUIRRELVM v, const SQInteger idx)
+{
+    return sq_is_base_stack_index(idx)
+        // base-based index. accessing `stackframe[roottable + idx]`
+        ? (v->GetAt(idx + v->_stackbase - 1))
+        // top-based index. effectively accessing `stackframe[top - abs(idx)]`
+        : (v->GetUp(idx));
+}
 
 #define _ss(_vm_) (_vm_)->_sharedstate
 

@@ -27,23 +27,23 @@ SQClass::SQClass(SQVM *v, SQClass *base) :
         _udsize = _base->_udsize;
         _defaultvalues.copy(base->_defaultvalues);
         _methods.copy(base->_methods);
-        _COPY_VECTOR(_metamethods,base->_metamethods,MT_NUM_METHODS);
-        __ObjAddRef(_base);
+        sq_unsafe_copy_vector(_metamethods,base->_metamethods,MT_NUM_METHODS);
+        sq_object_add_ref(_base);
     }
     _members = base?base->_members->Clone() : SQTable::Create(ss,0);
-    __ObjAddRef(_members);
+    sq_object_add_ref(_members);
 
     INIT_CHAIN();
     ADD_TO_CHAIN(&_sharedstate->_gc_chain, this);
 }
 
 void SQClass::Finalize() {
-    _NULL_SQOBJECT_VECTOR(_defaultvalues,_defaultvalues.size());
+    sq_unsafe_nullify_vector_elements(_defaultvalues,_defaultvalues.size());
     _methods.resize(0);
-    _NULL_SQOBJECT_VECTOR(_metamethods,MT_NUM_METHODS);
-    __ObjRelease(_members);
+    sq_unsafe_nullify_vector_elements(_metamethods,MT_NUM_METHODS);
+    sq_object_release(_members);
     if(_base) {
-        __ObjRelease(_base);
+        sq_object_release(_base);
     }
 }
 
@@ -92,7 +92,7 @@ bool SQClass::NewSlot(SQSharedState *ss,const SQObjectPtr &key,const SQObjectPtr
             if(_base && sq_type(val) == OT_CLOSURE) {
                 theval = _closure(val)->Clone();
                 _closure(theval)->_base = _base;
-                __ObjAddRef(_base); //ref for the closure
+                sq_object_add_ref(_base); //ref for the closure
             }
             if(sq_type(temp) == OT_NULL) {
                 bool isconstructor = SQVM::IsEqual(ss->_constructorstr, key);
@@ -133,7 +133,7 @@ SQInteger SQClass::Next(const SQObjectPtr &refpos, SQObjectPtr &outkey, SQObject
     if(idx != -1) {
         if(_isfield(oval)) {
             SQObjectPtr &o = _defaultvalues[_member_idx(oval)].val;
-            outval = _realval(o);
+            outval = sq_maybe_deref_weakptr(o);
         }
         else {
             outval = _methods[_member_idx(oval)].val;
@@ -174,7 +174,7 @@ void SQInstance::Init(SQSharedState *ss)
     _alloc_ctx = ss->_alloc_ctx;
     _userpointer = NULL;
     _hook = NULL;
-    __ObjAddRef(_class);
+    sq_object_add_ref(_class);
     _delegate = _class->_members;
     INIT_CHAIN();
     ADD_TO_CHAIN(&_sharedstate->_gc_chain, this);
@@ -205,8 +205,8 @@ SQInstance::SQInstance(SQSharedState *ss, SQInstance *i, SQInteger memsize)
 void SQInstance::Finalize()
 {
     SQUnsignedInteger nvalues = _class->_defaultvalues.size();
-    __ObjRelease(_class);
-    _NULL_SQOBJECT_VECTOR(_values,nvalues);
+    sq_object_release(_class);
+    sq_unsafe_nullify_vector_elements(_values,nvalues);
 }
 
 SQInstance::~SQInstance()

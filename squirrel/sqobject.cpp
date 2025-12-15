@@ -98,7 +98,7 @@ SQRefCounted::~SQRefCounted()
 }
 
 void SQWeakRef::Release() {
-    if(ISREFCOUNTED(_obj._type)) {
+    if(sq_is_ref_counted(_obj._type)) {
         _obj._unVal.pRefCounted->_weakref = NULL;
     }
     sq_delete(_alloc_ctx, this, SQWeakRef);
@@ -119,8 +119,8 @@ bool SQDelegable::SetDelegate(SQTable *mt)
         if (temp->_delegate == this) return false; //cycle detected
         temp = temp->_delegate;
     }
-    if (mt) __ObjAddRef(mt);
-    __ObjRelease(_delegate);
+    if (mt) sq_object_add_ref(mt);
+    sq_object_release(_delegate);
     _delegate = mt;
     return true;
 }
@@ -133,7 +133,7 @@ bool SQGenerator::Yield(SQVM *v,SQInteger target)
 
     _stack.resize(size);
     SQObject _this = v->_stack[v->_stackbase];
-    _stack._vals[0] = ISREFCOUNTED(sq_type(_this))
+    _stack._vals[0] = sq_is_ref_counted(sq_type(_this))
         ? SQObjectPtr(_refcounted(_this)->GetWeakRef(_ss(v)->_alloc_ctx, sq_type(_this), _this._flags))
         : _this;
 
@@ -325,8 +325,8 @@ SQInteger SQFunctionProto::GetLine(const SQInstruction *curr, int *hint, bool *i
 
 SQClosure::~SQClosure()
 {
-    __ObjRelease(_env);
-    __ObjRelease(_base);
+    sq_object_release(_env);
+    sq_object_release(_base);
     REMOVE_FROM_CHAIN(&_ss(this)->_gc_chain,this);
 }
 

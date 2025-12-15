@@ -221,7 +221,7 @@ void sq_notifyallexceptions(HSQUIRRELVM v, SQBool enable)
 
 void sq_addref(HSQUIRRELVM v,HSQOBJECT *po)
 {
-    if(!ISREFCOUNTED(sq_type(*po))) return;
+    if(!sq_is_ref_counted(sq_type(*po))) return;
 #ifdef NO_GARBAGE_COLLECTOR
     __AddRef(po->_type,po->_unVal);
 #else
@@ -231,7 +231,7 @@ void sq_addref(HSQUIRRELVM v,HSQOBJECT *po)
 
 SQUnsignedInteger sq_getrefcount(HSQUIRRELVM v,HSQOBJECT *po)
 {
-    if(!ISREFCOUNTED(sq_type(*po))) return 0;
+    if(!sq_is_ref_counted(sq_type(*po))) return 0;
 #ifdef NO_GARBAGE_COLLECTOR
    return po->_unVal.pRefCounted->_uiRef;
 #else
@@ -241,7 +241,7 @@ SQUnsignedInteger sq_getrefcount(HSQUIRRELVM v,HSQOBJECT *po)
 
 SQBool sq_release(HSQUIRRELVM v,HSQOBJECT *po)
 {
-    if(!ISREFCOUNTED(sq_type(*po))) return SQTrue;
+    if(!sq_is_ref_counted(sq_type(*po))) return SQTrue;
 #ifdef NO_GARBAGE_COLLECTOR
     bool ret = (po->_unVal.pRefCounted->_uiRef <= 1) ? SQTrue : SQFalse;
     __Release(po->_type,po->_unVal);
@@ -253,7 +253,7 @@ SQBool sq_release(HSQUIRRELVM v,HSQOBJECT *po)
 
 SQUnsignedInteger sq_getvmrefcount(HSQUIRRELVM SQ_UNUSED_ARG(v), const HSQOBJECT *po)
 {
-    if (!ISREFCOUNTED(sq_type(*po))) return 0;
+    if (!sq_is_ref_counted(sq_type(*po))) return 0;
     return po->_unVal.pRefCounted->_uiRef;
 }
 
@@ -653,20 +653,20 @@ SQRESULT sq_bindenv(HSQUIRRELVM v,SQInteger idx)
     SQObjectPtr ret;
     if(sq_isclosure(o)) {
         SQClosure *c = _closure(o)->Clone();
-        __ObjRelease(c->_env);
+        sq_object_release(c->_env);
         c->_env = w;
-        __ObjAddRef(c->_env);
+        sq_object_add_ref(c->_env);
         if(_closure(o)->_base) {
             c->_base = _closure(o)->_base;
-            __ObjAddRef(c->_base);
+            sq_object_add_ref(c->_base);
         }
         ret = c;
     }
     else { //then must be a native closure
         SQNativeClosure *c = _nativeclosure(o)->Clone();
-        __ObjRelease(c->_env);
+        sq_object_release(c->_env);
         c->_env = w;
-        __ObjAddRef(c->_env);
+        sq_object_add_ref(c->_env);
         ret = c;
     }
     v->Pop();
@@ -1639,7 +1639,7 @@ SQRESULT sq_getbyhandle(HSQUIRRELVM v,SQInteger idx,const HSQMEMBERHANDLE *handl
     if(SQ_FAILED(_getmemberbyhandle(v,self,handle,val))) {
         return SQ_ERROR;
     }
-    v->Push(SQObjectPtr(_realval(*val)));
+    v->Push(SQObjectPtr(sq_maybe_deref_weakptr(*val)));
     return SQ_OK;
 }
 
@@ -1689,7 +1689,7 @@ SQRESULT sq_createinstance(HSQUIRRELVM v,SQInteger idx)
 void sq_weakref(HSQUIRRELVM v,SQInteger idx)
 {
     const SQObjectPtr &o=stack_get(v,idx);
-    if(ISREFCOUNTED(sq_type(o))) {
+    if(sq_is_ref_counted(sq_type(o))) {
         v->Push(SQObjectPtr(_refcounted(o)->GetWeakRef(_ss(v)->_alloc_ctx, sq_type(o), o._flags)));
         return;
     }

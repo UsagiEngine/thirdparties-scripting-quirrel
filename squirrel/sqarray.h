@@ -40,7 +40,7 @@ public:
     {
         if((SQUnsignedInteger)nidx<(SQUnsignedInteger)_values.size()){
             SQObjectPtr &o = _values[nidx];
-            val = _realval(o);
+            val = sq_maybe_deref_weakptr(o);
             return true;
         }
         else return false;
@@ -61,7 +61,7 @@ public:
             //first found
             outkey=(SQInteger)idx;
             SQObjectPtr &o = _values[idx];
-            outval = _realval(o);
+            outval = sq_maybe_deref_weakptr(o);
             //return idx for the next iteration
             return ++idx;
         }

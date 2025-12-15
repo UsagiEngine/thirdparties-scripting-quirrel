@@ -190,23 +190,23 @@ public:
 
         assert(ptr - (char *)f == fnSize);
 
-        _CONSTRUCT_VECTOR(SQObjectPtr,f->_nliterals,f->_literals);
-        _CONSTRUCT_VECTOR(SQObjectPtr,f->_nparameters,f->_parameters);
-        _CONSTRUCT_VECTOR(SQObjectPtr,f->_nfunctions,f->_functions);
-        _CONSTRUCT_VECTOR(SQObjectPtr,f->_nstaticmemos,f->_staticmemos);
-        _CONSTRUCT_VECTOR(SQOuterVar,f->_noutervalues,f->_outervalues);
+        sq_unsafe_construct_vector_inplace(f->_nliterals,f->_literals);
+        sq_unsafe_construct_vector_inplace(f->_nparameters,f->_parameters);
+        sq_unsafe_construct_vector_inplace(f->_nfunctions,f->_functions);
+        sq_unsafe_construct_vector_inplace(f->_nstaticmemos,f->_staticmemos);
+        sq_unsafe_construct_vector_inplace(f->_noutervalues,f->_outervalues);
         //_CONSTRUCT_VECTOR(SQLineInfo,f->_nlineinfos,f->_lineinfos); //not required are 2 integers
-        _CONSTRUCT_VECTOR(SQLocalVarInfo,f->_nlocalvarinfos,f->_localvarinfos);
+        sq_unsafe_construct_vector_inplace(f->_nlocalvarinfos,f->_localvarinfos);
         return f;
     }
     void Release(){
-        _DESTRUCT_VECTOR(SQObjectPtr,_nliterals,_literals);
-        _DESTRUCT_VECTOR(SQObjectPtr,_nparameters,_parameters);
-        _DESTRUCT_VECTOR(SQObjectPtr,_nfunctions,_functions);
-        _DESTRUCT_VECTOR(SQObjectPtr,_nstaticmemos,_staticmemos);
-        _DESTRUCT_VECTOR(SQOuterVar,_noutervalues,_outervalues);
+        sq_unsafe_destruct_vector_inplace(_nliterals,_literals);
+        sq_unsafe_destruct_vector_inplace(_nparameters,_parameters);
+        sq_unsafe_destruct_vector_inplace(_nfunctions,_functions);
+        sq_unsafe_destruct_vector_inplace(_nstaticmemos,_staticmemos);
+        sq_unsafe_destruct_vector_inplace(_noutervalues,_outervalues);
         //_DESTRUCT_VECTOR(SQLineInfo,_nlineinfos,_lineinfos); //not required are 2 integers
-        _DESTRUCT_VECTOR(SQLocalVarInfo,_nlocalvarinfos,_localvarinfos);
+        sq_unsafe_destruct_vector_inplace(_nlocalvarinfos,_localvarinfos);
         SQInteger size = _FUNC_SIZE(_ninstructions,_nliterals,_nparameters,_nfunctions,_noutervalues,_nlineinfos,_lineinfos->_is_compressed,_nlocalvarinfos,_ndefaultparams,_nstaticmemos);
         SQAllocContext ctx = _alloc_ctx;
         this->~SQFunctionProto();
@@ -221,8 +221,8 @@ public:
 #ifndef NO_GARBAGE_COLLECTOR
     void Mark(SQCollectable **chain);
     void Finalize(){
-        _NULL_SQOBJECT_VECTOR(_literals,_nliterals);
-        _NULL_SQOBJECT_VECTOR(_staticmemos,_nstaticmemos);
+        sq_unsafe_nullify_vector_elements(_literals,_nliterals);
+        sq_unsafe_nullify_vector_elements(_staticmemos,_nstaticmemos);
     }
     SQObjectType GetType() {return OT_FUNCPROTO;}
 #endif

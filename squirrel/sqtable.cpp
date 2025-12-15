@@ -158,7 +158,7 @@ bool SQTable::Get(const SQObjectPtr &key,SQObjectPtr &val) const
 {
     const _HashNode *n = _Get(key);
     if (n) {
-        val = _realval(n->val);
+        val = sq_maybe_deref_weakptr(n->val);
         return true;
     }
     return false;
@@ -275,7 +275,7 @@ SQInteger SQTable::Next(bool getweakrefs,const SQObjectPtr &__restrict refpos, S
             //first found
             _HashNode &n = _nodes[idx];
             outkey = n.key;
-            outval = getweakrefs?(SQObject)n.val:_realval(n.val);
+            outval = getweakrefs?(SQObject)n.val:sq_maybe_deref_weakptr(n.val);
             //return idx for the next iteration
             return ++idx;
         }

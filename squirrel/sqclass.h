@@ -40,7 +40,7 @@ public:
         if(_members->Get(key,val)) {
             if(_isfield(val)) {
                 SQObjectPtr &o = _defaultvalues[_member_idx(val)].val;
-                val = _realval(o);
+                val = sq_maybe_deref_weakptr(o);
             }
             else {
                 val = _methods[_member_idx(val)].val;
@@ -128,7 +128,7 @@ public:
     ~SQInstance();
     inline void GetMember(uint32_t idx, SQObjectPtr &val) const {
         if (_isfieldi(idx))
-            val = _realval(_values[_member_idxi(idx)]);
+            val = sq_maybe_deref_weakptr(_values[_member_idxi(idx)]);
         else
             val = _class->_methods[_member_idxi(idx)].val;
     }

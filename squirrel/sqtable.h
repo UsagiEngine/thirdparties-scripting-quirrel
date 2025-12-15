@@ -117,7 +117,7 @@ public:
             }
         }while((n = n->next));
         if (res) {
-            val = _realval(res->val);
+            val = sq_maybe_deref_weakptr(res->val);
             return true;
         }
         return false;

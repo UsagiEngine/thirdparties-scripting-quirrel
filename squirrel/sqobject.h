@@ -2,6 +2,8 @@
 #ifndef _SQOBJECT_H_
 #define _SQOBJECT_H_
 
+#include <type_traits>
+
 #include "squtils.h"
 
 #define UINT32_MINUS_ONE (0xFFFFFFFF)
@@ -41,29 +43,40 @@ enum SQMetaMethod{
 
 #undef MM_IMPL
 
-
-#define _CONSTRUCT_VECTOR(type,size,ptr) { \
-    for(SQInteger n = 0; n < ((SQInteger)size); n++) { \
-            new (&ptr[n]) type(); \
-        } \
+template <typename T>
+void sq_unsafe_construct_vector_inplace(const SQInteger size, T *& ptr)
+{
+    using type = std::remove_cv_t<T>;
+    for(SQInteger n = 0; n < size; n++)
+    {
+        new (&ptr[n]) type();
+    }
 }
 
-#define _DESTRUCT_VECTOR(type,size,ptr) { \
-    for(SQInteger nl = 0; nl < ((SQInteger)size); nl++) { \
-            ptr[nl].~type(); \
-    } \
+template <typename T>
+void sq_unsafe_destruct_vector_inplace(const SQInteger size, T *& ptr)
+{
+    using type = std::remove_cv_t<T>;
+    for(SQInteger nl = 0; nl < size; nl++)
+    {
+        ptr[nl].~type();
+    }
 }
 
-#define _COPY_VECTOR(dest,src,size) { \
-    for(SQInteger _n_ = 0; _n_ < ((SQInteger)size); _n_++) { \
-        dest[_n_] = src[_n_]; \
-    } \
+void sq_unsafe_copy_vector(auto && dest, auto && src, const SQInteger size)
+{
+    for(SQInteger _n_ = 0; _n_ < size; _n_++)
+    {
+        dest[_n_] = src[_n_];
+    }
 }
 
-#define _NULL_SQOBJECT_VECTOR(vec,size) { \
-    for(SQInteger _n_ = 0; _n_ < ((SQInteger)size); _n_++) { \
-        vec[_n_].Null(); \
-    } \
+void sq_unsafe_nullify_vector_elements(auto && vec, const SQInteger size)
+{
+    for(SQInteger _n_ = 0; _n_ < size; _n_++)
+    {
+        vec[_n_].Null();
+    }
 }
 
 
@@ -85,31 +98,45 @@ struct SQWeakRef : SQRefCounted
     SQAllocContext _alloc_ctx;
 };
 
-#define _realval(o) (sq_type((o)) != OT_WEAKREF?(SQObject)o:_weakref(o)->_obj)
-
 struct SQObjectPtr;
 
-#define __AddRef(type,unval) if(ISREFCOUNTED(type)) \
-        { \
-            unval.pRefCounted->_uiRef++; \
-        }
-
-#define __Release(type,unval) if(ISREFCOUNTED(type) && ((--unval.pRefCounted->_uiRef)==0))  \
-        {   \
-            unval.pRefCounted->Release();   \
-        }
-
-#define __ObjRelease(obj) { \
-    if((obj)) { \
-        (obj)->_uiRef--; \
-        if((obj)->_uiRef == 0) \
-            (obj)->Release(); \
-        (obj) = NULL;   \
-    } \
+inline void sq_try_add_ref(const SQObjectType type, SQObjectValue & unval)
+{
+    if(sq_is_ref_counted(type))
+    {
+        unval.pRefCounted->_uiRef++;
+    }
 }
 
-#define __ObjAddRef(obj) { \
-    (obj)->_uiRef++; \
+inline void sq_try_release(const SQObjectType type, SQObjectValue & unval)
+{
+    if(sq_is_ref_counted(type))
+    {
+        auto & ref_count = unval.pRefCounted->_uiRef;
+        --ref_count;
+        assert(ref_count != (SQUnsignedInteger)-1);
+        if(ref_count == 0) unval.pRefCounted->Release();
+    }
+}
+
+template <typename RefCounted, typename T = std::remove_cv_t<RefCounted>>
+    requires std::is_base_of_v<SQRefCounted, T>
+void sq_object_release(RefCounted *& obj)
+{
+    if(obj)
+    {
+        auto & ref_count = obj->_uiRef;
+        --ref_count;
+        assert(ref_count != (SQUnsignedInteger)-1);
+        if(ref_count == 0) obj->Release();
+        obj = nullptr;
+    }
+}
+
+inline void sq_object_add_ref(SQRefCounted * obj)
+{
+    assert(obj);
+    obj->_uiRef++;
 }
 
 #define is_delegable(t) (sq_type(t)&SQOBJECT_DELEGABLE)
@@ -140,6 +167,12 @@ struct SQObjectPtr;
 
 #define tofloat(num) ((sq_type(num)==OT_INTEGER)?(SQFloat)_integer(num):_float(num))
 #define tointeger(num) ((sq_type(num)==OT_FLOAT)?(SQInteger)_float(num):_integer(num))
+
+constexpr SQObject sq_maybe_deref_weakptr(auto && o)
+{
+    return (sq_type((o)) != OT_WEAKREF ? (SQObject)o : _weakref(o)->_obj);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 #if defined(SQUSEDOUBLE) && !defined(_SQ64) || !defined(SQUSEDOUBLE) && defined(_SQ64)
@@ -167,7 +200,7 @@ struct SQObjectPtr;
         SQ_REFOBJECT_INIT() \
         _unVal.sym = x; \
         _unVal.pRefCounted->_uiRef++; \
-        __Release(tOldType,unOldVal); \
+        sq_try_release(tOldType,unOldVal); \
         return *this; \
     }
 
@@ -181,7 +214,7 @@ struct SQObjectPtr;
     } \
     inline SQObjectPtr& operator=(_class x) \
     {  \
-        __Release(_type,_unVal); \
+        sq_try_release(_type,_unVal); \
         _type = type; \
         _flags = 0; \
         SQ_OBJECT_RAWINIT() \
@@ -197,7 +230,7 @@ struct SQObjectPtr : public SQObject
     SQObjectPtr(const SQObjectPtr &__restrict o)
     {
         memcpy(this, &o, sizeof(o));
-        __AddRef(_type,_unVal);
+        sq_try_add_ref(_type,_unVal);
     }
     SQObjectPtr(SQObjectPtr &&__restrict o) noexcept
     {
@@ -207,7 +240,7 @@ struct SQObjectPtr : public SQObject
     explicit SQObjectPtr(const SQObject &__restrict o)
     {
         memcpy(this, &o, sizeof(o));
-        __AddRef(_type,_unVal);
+        sq_try_add_ref(_type,_unVal);
     }
     _REF_TYPE_DECL(OT_TABLE,SQTable,pTable)
     _REF_TYPE_DECL(OT_CLASS,SQClass,pClass)
@@ -241,7 +274,7 @@ struct SQObjectPtr : public SQObject
     }
     inline SQObjectPtr& operator=(bool b)
     {
-        __Release(_type,_unVal);
+        sq_try_release(_type,_unVal);
         SQ_OBJECT_RAWINIT()
         _type = OT_BOOL;
         _flags = 0;
@@ -251,7 +284,7 @@ struct SQObjectPtr : public SQObject
 
     ~SQObjectPtr()
     {
-        __Release(_type,_unVal);
+        sq_try_release(_type,_unVal);
     }
 
     inline SQObjectPtr& operator=(const SQObjectPtr& __restrict obj)
@@ -259,8 +292,8 @@ struct SQObjectPtr : public SQObject
         SQObjectType  tOldType = _type;
         SQObjectValue unOldVal =_unVal;
         memcpy(this, &obj, sizeof(SQObjectPtr));
-        __AddRef(_type,_unVal);
-        __Release(tOldType,unOldVal);
+        sq_try_add_ref(_type,_unVal);
+        sq_try_release(tOldType,unOldVal);
         return *this;
     }
     inline SQObjectPtr& operator=(const SQObject& __restrict obj)
@@ -268,14 +301,14 @@ struct SQObjectPtr : public SQObject
         SQObjectType  tOldType = _type;
         SQObjectValue unOldVal =_unVal;
         memcpy(this, &obj, sizeof(SQObject));
-        __AddRef(_type,_unVal);
-        __Release(tOldType,unOldVal);
+        sq_try_add_ref(_type,_unVal);
+        sq_try_release(tOldType,unOldVal);
         return *this;
     }
     inline SQObjectPtr& operator=(SQObjectPtr&& __restrict obj) noexcept
     {
         if (this != &obj) {
-            __Release(_type, _unVal);
+            sq_try_release(_type, _unVal);
             memcpy(this, &obj, sizeof(SQObjectPtr));
             memset(&obj, 0, sizeof(SQObjectPtr));  // OT_NULL == 0
         }
@@ -287,7 +320,7 @@ struct SQObjectPtr : public SQObject
         SQObjectValue unOldVal = _unVal;
         memset(this,0, sizeof(SQObjectPtr));
         _type = OT_NULL;
-        __Release(tOldType ,unOldVal);
+        sq_try_release(tOldType ,unOldVal);
     }
     private:
         SQObjectPtr(const SQChar *){} //safety
@@ -317,11 +350,22 @@ struct SQCollectable : public SQRefCounted {
     static void RemoveFromChain(SQCollectable **chain,SQCollectable *c);
 };
 
-
-#define ADD_TO_CHAIN(chain,obj) AddToChain(chain,obj)
-#define REMOVE_FROM_CHAIN(chain,obj) {if(!(_uiRef&MARK_FLAG))RemoveFromChain(chain,obj);}
+#define ADD_TO_CHAIN(chain, obj) AddToChain(chain, obj)
+#define REMOVE_FROM_CHAIN(chain, obj)                          \
+    do                                                         \
+    {                                                          \
+        if(!(_uiRef & MARK_FLAG)) RemoveFromChain(chain, obj); \
+    }                                                          \
+    while(0)
 #define CHAINABLE_OBJ SQCollectable
-#define INIT_CHAIN() {_gc_next=NULL;_gc_prev=NULL;_sharedstate=ss;}
+#define INIT_CHAIN()         \
+    do                       \
+    {                        \
+        _gc_next     = NULL; \
+        _gc_prev     = NULL; \
+        _sharedstate = ss;   \
+    }                        \
+    while(0)
 #else
 
 // Need this to keep SQSharedState pointer to access alloc_ctx
@@ -359,7 +403,5 @@ typedef sqvector<SQObjectPtr> SQObjectPtrVec;
 typedef sqvector<SQInteger> SQIntVec;
 const SQChar *GetTypeName(const SQObject &obj1);
 const SQChar *IdType2Name(SQObjectType type);
-
-
 
 #endif //_SQOBJECT_H_

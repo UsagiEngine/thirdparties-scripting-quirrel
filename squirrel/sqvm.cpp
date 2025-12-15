@@ -675,7 +675,7 @@ bool SQVM::DerefInc(SQInteger op,SQObjectPtr &target, SQObjectPtr &self, SQObjec
         }
     }
     if (instanceValue)
-        tmp = _realval(*instanceValue);
+        tmp = sq_maybe_deref_weakptr(*instanceValue);
     else
     {
         //delegates and OT_USERDATA option. Basically FallbackGet/FallbackSet
@@ -1237,7 +1237,7 @@ exception_restore:
                         }
                     }
                     if (node) {
-                        temp_reg = _realval(node->val);
+                        temp_reg = sq_maybe_deref_weakptr(node->val);
                         propagate_immutable(from, temp_reg);
                     }
                     else {
@@ -1601,7 +1601,7 @@ exception_restore:
                 SQObjectPtr & storedStatic = _closure(ci->_closure)->_function->_staticmemos[arg1]; //-V595
                 storedStatic = staticmemo;
 
-                if (ISREFCOUNTED(tp)) {
+                if (sq_is_ref_counted(tp)) {
                 #ifdef NO_GARBAGE_COLLECTOR
                     __AddRef(storedStatic._type, storedStatic._unVal);
                 #else
@@ -2326,7 +2326,7 @@ void SQVM::FindOuter(SQObjectPtr &target, SQObjectPtr *stackindex)
     otr = SQOuter::Create(_ss(this), stackindex);
     otr->_next = *pp;
     otr->_idx  = (stackindex - _stack._vals);
-    __ObjAddRef(otr);
+    sq_object_add_ref(otr);
     *pp = otr;
     target = SQObjectPtr(otr);
 }
@@ -2406,7 +2406,7 @@ void SQVM::CloseOuters(SQObjectPtr *stackindex) {
     p->_value = *(p->_valptr);
     p->_valptr = &p->_value;
     _openouters = p->_next;
-    __ObjRelease(p);
+    sq_object_release(p);
   }
 }
 

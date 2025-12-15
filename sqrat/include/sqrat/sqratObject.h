@@ -65,7 +65,7 @@ public:
     }
 
     Object(const Object& so) : vm(so.vm), obj(so.obj) {
-        if (ISREFCOUNTED(sq_type(obj)))
+        if (sq_is_ref_counted(sq_type(obj)))
             sq_addref(vm, &obj);
     }
 
@@ -76,7 +76,7 @@ public:
     Object(const Object &&)=delete;
 
     Object(HSQOBJECT o, HSQUIRRELVM v) : vm(v), obj(o) {
-        if (ISREFCOUNTED(sq_type(obj)))
+        if (sq_is_ref_counted(sq_type(obj)))
             sq_addref(vm, &obj);
     }
 
@@ -150,7 +150,7 @@ public:
           Release();
           vm = so.vm;
           obj = so.obj;
-          if (ISREFCOUNTED(sq_type(obj)))
+          if (sq_is_ref_counted(sq_type(obj)))
             sq_addref(vm, &obj);
         }
         return *this;
@@ -196,7 +196,7 @@ public:
     }
 
     void Release() {
-        if (ISREFCOUNTED(sq_type(obj)))
+        if (sq_is_ref_counted(sq_type(obj)))
             sq_release(vm, &obj);
         sq_resetobject(&obj);
     }

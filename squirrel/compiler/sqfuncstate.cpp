@@ -451,7 +451,7 @@ void ResetStaticMemos(SQFunctionProto *func, SQSharedState *ss)
                 assert(unsigned(instr[i]._arg1) < func->_nstaticmemos);
                 SQObjectPtr& storedStatic = func->_staticmemos[instr[i]._arg1];
 
-                if (ISREFCOUNTED(sq_type(storedStatic))) {
+                if (sq_is_ref_counted(sq_type(storedStatic))) {
                 #ifdef NO_GARBAGE_COLLECTOR
                     assert(storedStatic._unVal.pRefCounted->_uiRef > 1);
                     __Release(storedStatic._type, storedStatic._unVal);
