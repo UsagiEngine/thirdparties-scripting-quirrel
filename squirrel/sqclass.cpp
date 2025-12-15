@@ -73,12 +73,12 @@ bool SQClass::NewSlot(SQSharedState *ss,const SQObjectPtr &key,const SQObjectPtr
     bool belongs_to_static_table = sq_type(val) == OT_CLOSURE || sq_type(val) == OT_NATIVECLOSURE || bstatic;
     if(isLocked() && !belongs_to_static_table)
         return false; //the class already has an instance so cannot be modified
-    if(_members->Get(key,temp) && _isfield(temp)) //overrides the default value
+    if(_members->Get(key,temp) && sq_obj_is_field(temp)) //overrides the default value
     {
-        _defaultvalues[_member_idx(temp)].val = val;
+        _defaultvalues[sq_get_member_idx(temp)].val = val;
         return true;
     }
-	if (_members->CountUsed() >= MEMBER_MAX_COUNT) {
+	if (_members->CountUsed() >= SQ_MEMBER_MAX_COUNT) {
 		return false;
 	}
     if(belongs_to_static_table) {
@@ -90,8 +90,8 @@ bool SQClass::NewSlot(SQSharedState *ss,const SQObjectPtr &key,const SQObjectPtr
         else {
             SQObjectPtr theval = val;
             if(_base && sq_type(val) == OT_CLOSURE) {
-                theval = _closure(val)->Clone();
-                _closure(theval)->_base = _base;
+                theval = sq_get_closure(val)->Clone();
+                sq_get_closure(theval)->_base = _base;
                 sq_object_add_ref(_base); //ref for the closure
             }
             if(sq_type(temp) == OT_NULL) {
@@ -101,18 +101,18 @@ bool SQClass::NewSlot(SQSharedState *ss,const SQObjectPtr &key,const SQObjectPtr
                 }
                 SQClassMember m;
                 m.val = theval;
-                _members->NewSlot(key,SQObjectPtr(_make_method_idx(_methods.size())));
+                _members->NewSlot(key,SQObjectPtr(sq_make_method_idx(_methods.size())));
                 _methods.push_back(m);
             }
             else {
-                _methods[_member_idx(temp)].val = theval;
+                _methods[sq_get_member_idx(temp)].val = theval;
             }
         }
         return true;
     }
     SQClassMember m;
     m.val = val;
-    _members->NewSlot(key,SQObjectPtr(_make_field_idx(_defaultvalues.size())));
+    _members->NewSlot(key,SQObjectPtr(sq_make_field_idx(_defaultvalues.size())));
     _defaultvalues.push_back(m);
     return true;
 }
@@ -131,12 +131,12 @@ SQInteger SQClass::Next(const SQObjectPtr &refpos, SQObjectPtr &outkey, SQObject
     SQObjectPtr oval;
     SQInteger idx = _members->Next(false,refpos,outkey,oval);
     if(idx != -1) {
-        if(_isfield(oval)) {
-            SQObjectPtr &o = _defaultvalues[_member_idx(oval)].val;
+        if(sq_obj_is_field(oval)) {
+            SQObjectPtr &o = _defaultvalues[sq_get_member_idx(oval)].val;
             outval = sq_maybe_deref_weakptr(o);
         }
         else {
-            outval = _methods[_member_idx(oval)].val;
+            outval = _methods[sq_get_member_idx(oval)].val;
         }
     }
     return idx;

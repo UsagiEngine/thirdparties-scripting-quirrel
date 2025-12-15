@@ -6,6 +6,7 @@
 // (Mainly used in `sqobject.h`/`sqvm.h`)
 #include <assert.h>
 #include <memory>
+#include <type_traits>
 
 #include "squirrel.h"
 
@@ -24,7 +25,48 @@ void sq_vm_free(SQAllocContext ctx, void *p,SQUnsignedInteger size);
 #define SQ_FREE(__ctx,__ptr,__size) sq_vm_free((__ctx),(__ptr),(__size));
 #define SQ_REALLOC(__ctx,__ptr,__oldsize,__size) sq_vm_realloc((__ctx),(__ptr),(__oldsize),(__size));
 
-#define sq_aligning(v) (((size_t)(v) + (SQ_ALIGNMENT-1)) & (~(SQ_ALIGNMENT-1)))
+// -----------------------------------------------------------------------------
+// Alignment Constants
+// -----------------------------------------------------------------------------
+
+#ifndef SQ_ALIGNMENT
+// Default to pointer size if not defined (standard Squirrel behavior)
+constexpr std::uintptr_t SQ_ALIGNMENT = sizeof(void *);
+#endif
+
+// -----------------------------------------------------------------------------
+// Alignment Helper
+// -----------------------------------------------------------------------------
+
+/* Shio: This function aligns a value 'v' up to the next multiple of
+   SQ_ALIGNMENT. It handles both integer types and pointers automatically.
+
+   Warning: Usage with Pointers is Runtime-Only.
+   C++ does not allow casting pointers to integers in strict compile-time
+   contexts (constexpr/consteval).
+*/
+// #define sq_aligning(v) (((size_t)(v) + (SQ_ALIGNMENT-1)) &
+// (~(SQ_ALIGNMENT-1)))
+template <typename Ptr, typename PtrT = std::remove_cvref_t<Ptr>>
+[[nodiscard]]
+constexpr auto sq_aligning(Ptr && v) noexcept
+{
+    // 1. Convert input to size_t (matching legacy (size_t)(v))
+    std::size_t val;
+
+    if constexpr(std::is_pointer_v<PtrT>)
+    {
+        val = reinterpret_cast<std::size_t>(v);
+    }
+    else
+    {
+        val = static_cast<std::size_t>(v);
+    }
+
+    // 2. Perform alignment
+    constexpr std::size_t mask = SQ_ALIGNMENT_CONST - 1;
+    return (val + mask) & ~mask;
+}
 
 #ifndef SQ_LIKELY
   #if (defined(__GNUC__) && (__GNUC__ >= 3)) || defined(__clang__)

@@ -3,6 +3,7 @@
 #define _SQOBJECT_H_
 
 #include <type_traits>
+#include <utility>
 
 #include "squtils.h"
 
@@ -139,38 +140,254 @@ inline void sq_object_add_ref(SQRefCounted * obj)
     obj->_uiRef++;
 }
 
-#define is_delegable(t) (sq_type(t)&SQOBJECT_DELEGABLE)
-#define raw_type(obj) _RAW_TYPE((obj)._type)
+struct SQTable;
+struct SQArray;
+struct SQClosure;
+struct SQOuter;
+struct SQGenerator;
+struct SQNativeClosure;
+struct SQString;
+struct SQUserData;
+struct SQFunctionProto;
+struct SQRefCounted;
+struct SQDelegable;
+struct SQVM;
+struct SQClass;
+struct SQInstance;
+struct SQWeakRef;
 
-#define _integer(obj) ((obj)._unVal.nInteger)
-#define _float(obj) ((obj)._unVal.fFloat)
-#define _string(obj) ((obj)._unVal.pString)
-#define _table(obj) ((obj)._unVal.pTable)
-#define _array(obj) ((obj)._unVal.pArray)
-#define _closure(obj) ((obj)._unVal.pClosure)
-#define _generator(obj) ((obj)._unVal.pGenerator)
-#define _nativeclosure(obj) ((obj)._unVal.pNativeClosure)
-#define _userdata(obj) ((obj)._unVal.pUserData)
-#define _userpointer(obj) ((obj)._unVal.pUserPointer)
-#define _thread(obj) ((obj)._unVal.pThread)
-#define _funcproto(obj) ((obj)._unVal.pFunctionProto)
-#define _class(obj) ((obj)._unVal.pClass)
-#define _instance(obj) ((obj)._unVal.pInstance)
-#define _delegable(obj) ((SQDelegable *)(obj)._unVal.pDelegable)
-#define _weakref(obj) ((obj)._unVal.pWeakRef)
-#define _outer(obj) ((obj)._unVal.pOuter)
-#define _refcounted(obj) ((obj)._unVal.pRefCounted)
-#define _rawval(obj) ((obj)._unVal.raw)
+// -----------------------------------------------------------------------------
+// Helper Predicates
+// -----------------------------------------------------------------------------
 
-#define _stringval(obj) (obj)._unVal.pString->_val
-#define _userdataval(obj) ((SQUserPointer)sq_aligning((obj)._unVal.pUserData + 1))
+constexpr bool sq_is_delegable(auto && o)
+{
+    return sq_type(std::forward<decltype(o)>(o)) & SQOBJECT_DELEGABLE;
+}
 
-#define tofloat(num) ((sq_type(num)==OT_INTEGER)?(SQFloat)_integer(num):_float(num))
-#define tointeger(num) ((sq_type(num)==OT_FLOAT)?(SQInteger)_float(num):_integer(num))
+// -----------------------------------------------------------------------------
+// Core Accessor Template (Replacing the _macro logic)
+// -----------------------------------------------------------------------------
+
+/* Shio: This template acts as the central dispatch for retrieving values
+   from the union based on the compile-time Type constant.
+   It uses std::forward to preserve value categories (L-value/R-value).
+*/
+template <SQObjectType Type>
+constexpr auto & sq_check_cast_object(auto && o)
+{
+    if constexpr(Type == OT_INTEGER)
+        return o._unVal.nInteger;
+    else if constexpr(Type == OT_FLOAT)
+        return o._unVal.fFloat;
+    else if constexpr(Type == OT_STRING)
+        return o._unVal.pString;
+    else if constexpr(Type == OT_TABLE)
+        return o._unVal.pTable;
+    else if constexpr(Type == OT_ARRAY)
+        return o._unVal.pArray;
+    else if constexpr(Type == OT_CLOSURE)
+        return o._unVal.pClosure;
+    else if constexpr(Type == OT_GENERATOR)
+        return o._unVal.pGenerator;
+    else if constexpr(Type == OT_NATIVECLOSURE)
+        return o._unVal.pNativeClosure;
+    else if constexpr(Type == OT_USERDATA)
+        return o._unVal.pUserData;
+    else if constexpr(Type == OT_USERPOINTER)
+        return o._unVal.pUserPointer;
+    else if constexpr(Type == OT_THREAD)
+        return o._unVal.pThread;
+    else if constexpr(Type == OT_FUNCPROTO)
+        return o._unVal.pFunctionProto;
+    else if constexpr(Type == OT_CLASS)
+        return o._unVal.pClass;
+    else if constexpr(Type == OT_INSTANCE)
+        return o._unVal.pInstance;
+    else if constexpr(Type == OT_WEAKREF)
+        return o._unVal.pWeakRef;
+    else if constexpr(Type == OT_OUTER)
+        return o._unVal.pOuter;
+    else
+        std::unreachable();
+}
+
+// -----------------------------------------------------------------------------
+// Type-Safe Accessors
+// -----------------------------------------------------------------------------
+
+constexpr decltype(auto) sq_get_integer(auto && o)
+{
+    return sq_check_cast_object<OT_INTEGER>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_float(auto && o)
+{
+    return sq_check_cast_object<OT_FLOAT>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_string(auto && o)
+{
+    return sq_check_cast_object<OT_STRING>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_table(auto && o)
+{
+    return sq_check_cast_object<OT_TABLE>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_array(auto && o)
+{
+    return sq_check_cast_object<OT_ARRAY>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_closure(auto && o)
+{
+    return sq_check_cast_object<OT_CLOSURE>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_generator(auto && o)
+{
+    return sq_check_cast_object<OT_GENERATOR>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_nativeclosure(auto && o)
+{
+    return sq_check_cast_object<OT_NATIVECLOSURE>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_userdata(auto && o)
+{
+    return sq_check_cast_object<OT_USERDATA>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_userpointer(auto && o)
+{
+    return sq_check_cast_object<OT_USERPOINTER>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_thread(auto && o)
+{
+    return sq_check_cast_object<OT_THREAD>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_funcproto(auto && o)
+{
+    return sq_check_cast_object<OT_FUNCPROTO>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_class(auto && o)
+{
+    return sq_check_cast_object<OT_CLASS>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_instance(auto && o)
+{
+    return sq_check_cast_object<OT_INSTANCE>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_weakref(auto && o)
+{
+    return sq_check_cast_object<OT_WEAKREF>(std::forward<decltype(o)>(o));
+}
+
+constexpr decltype(auto) sq_get_outer(auto && o)
+{
+    return sq_check_cast_object<OT_OUTER>(std::forward<decltype(o)>(o));
+}
+
+// Special accessors for shared pointer types
+
+// #define sq_get_delegable(obj) ((SQDelegable *)(obj)._unVal.pDelegable)
+constexpr auto & sq_get_delegable(auto && o)
+{
+    // Replaces _delegable(obj)
+    assert(sq_type(std::forward<decltype(o)>(o)) & SQOBJECT_DELEGABLE);
+    return o._unVal.pDelegable;
+}
+
+constexpr auto & sq_get_refcounted(auto && o)
+{
+    // Replaces _refcounted(obj)
+    assert(sq_type(std::forward<decltype(o)>(o)) & SQOBJECT_REF_COUNTED);
+    return o._unVal.pRefCounted;
+}
+
+constexpr auto & sq_get_rawval(auto && o)
+{
+    // Replaces _rawval(obj)
+    return o._unVal.raw;
+}
+
+// -----------------------------------------------------------------------------
+// Numeric Conversions (tofloat/tointeger)
+// -----------------------------------------------------------------------------
+
+constexpr SQFloat sq_to_float(auto && o)
+{
+    // Logic: ((sq_type(num)==OT_INTEGER)?(SQFloat)_integer(num):_float(num))
+    if(sq_type(o) == OT_INTEGER)
+    {
+        return static_cast<SQFloat>(
+            sq_get_integer(std::forward<decltype(o)>(o))
+        );
+    }
+    return sq_get_float(std::forward<decltype(o)>(o));
+}
+
+constexpr SQInteger sq_to_integer(auto && o)
+{
+    // Logic: ((sq_type(num)==OT_FLOAT)?(SQInteger)_float(num):_integer(num))
+    if(sq_type(o) == OT_FLOAT)
+    {
+        return static_cast<SQInteger>(
+            sq_get_float(std::forward<decltype(o)>(o))
+        );
+    }
+    return sq_get_integer(std::forward<decltype(o)>(o));
+}
+
+// -----------------------------------------------------------------------------
+// Structure Member Accessors (Requires full Type definitions)
+// -----------------------------------------------------------------------------
+/*
+   Shio: The following functions replace `_stringval` and `_userdataval`.
+   Note: These require `SQString` and `SQUserData` to be fully defined
+   at the point of instantiation.
+*/
+
+// Replaces: _stringval(obj)
+// For `stringval` don't return `decltype(auto)`.
+// `_val` has to decay to `char *`.
+constexpr auto & sq_get_stringval(auto && o)
+{
+    // return o._unVal.pString->_val;
+    // Uncomment implementation when SQString definition is visible
+    return sq_get_string(std::forward<decltype(o)>(o))->_val;
+}
+
+// Replaces: _userdataval(obj)
+constexpr SQUserPointer sq_get_userdataval(auto && o)
+{
+    // Original: ((SQUserPointer)sq_aligning((obj)._unVal.pUserData + 1))
+    // We treat the pointer math carefully here.
+    const auto pUserData = sq_get_userdata(std::forward<decltype(o)>(o));
+    // +1 on the struct pointer moves past the struct
+    const auto raw_addr  = pUserData + 1;
+    return reinterpret_cast<SQUserPointer>(sq_aligning(raw_addr));
+}
+
+// #define raw_type(obj) sq_get_raw_type((obj)._type)
+constexpr auto sq_get_obj_raw_type(auto && o)
+{
+    return sq_get_raw_type(std::forward<decltype(o)>(o)._type);
+}
 
 constexpr SQObject sq_maybe_deref_weakptr(auto && o)
 {
-    return (sq_type((o)) != OT_WEAKREF ? (SQObject)o : _weakref(o)->_obj);
+    return sq_type(std::forward<decltype(o)>(o)) != OT_WEAKREF
+        ? (SQObject)o
+        : sq_get_weakref(std::forward<decltype(o)>(o))->_obj;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -393,7 +610,7 @@ inline SQUnsignedInteger TranslateIndex(const SQObjectPtr &idx)
         case OT_NULL:
             return 0;
         case OT_INTEGER:
-            return (SQUnsignedInteger)_integer(idx);
+            return (SQUnsignedInteger)sq_get_integer(idx);
         default: assert(0); break;
     }
     return 0;

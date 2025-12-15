@@ -36,42 +36,42 @@ static void DumpLiteral(OutputStream *stream, const SQObjectPtr &o)
 {
     switch (sq_type(o)) {
         case OT_NULL: streamprintf(stream, _SC("null")); break;
-        case OT_STRING: streamprintf(stream, _SC("string(\"%s\")"), _stringval(o)); break;
-        case OT_FLOAT: streamprintf(stream, _SC("float(%f)"), _float(o)); break;
-        case OT_INTEGER: streamprintf(stream, _SC("int(") _PRINT_INT_FMT _SC(")"), _integer(o)); break;
-        case OT_BOOL: streamprintf(stream, _SC("%s"), _integer(o) ? _SC("bool(true)") : _SC("bool(false)")); break;
-        case OT_ARRAY: streamprintf(stream, _SC("array(0x%p size=%d)"), (void*)_rawval(o), int(_array(o)->Size())); break;
-        case OT_TABLE: streamprintf(stream, _SC("table(0x%p size=%d)"), (void*)_rawval(o), int(_table(o)->CountUsed())); break;
+        case OT_STRING: streamprintf(stream, _SC("string(\"%s\")"), sq_get_stringval(o)); break;
+        case OT_FLOAT: streamprintf(stream, _SC("float(%f)"), sq_get_float(o)); break;
+        case OT_INTEGER: streamprintf(stream, _SC("int(") _PRINT_INT_FMT _SC(")"), sq_get_integer(o)); break;
+        case OT_BOOL: streamprintf(stream, _SC("%s"), sq_get_integer(o) ? _SC("bool(true)") : _SC("bool(false)")); break;
+        case OT_ARRAY: streamprintf(stream, _SC("array(0x%p size=%d)"), (void*)sq_get_rawval(o), int(sq_get_array(o)->Size())); break;
+        case OT_TABLE: streamprintf(stream, _SC("table(0x%p size=%d)"), (void*)sq_get_rawval(o), int(sq_get_table(o)->CountUsed())); break;
         case OT_CLOSURE:
         {
-            SQFunctionProto *func = _closure(o)->_function;
-            const SQChar *funcName = sq_isstring(func->_name) ? _stringval(func->_name) : _SC("<null-name>");
+            SQFunctionProto *func = sq_get_closure(o)->_function;
+            const SQChar *funcName = sq_isstring(func->_name) ? sq_get_stringval(func->_name) : _SC("<null-name>");
             streamprintf(stream, _SC("%s(0x%p \"%s\")"), GetTypeName(o), (void*)func, funcName);
             break;
         }
         case OT_NATIVECLOSURE:
         {
-            SQNativeClosure *nc = _nativeclosure(o);
-            const SQChar* funcName = sq_isstring(nc->_name) ? _stringval(nc->_name) : _SC("<null-name>");
+            SQNativeClosure *nc = sq_get_nativeclosure(o);
+            const SQChar* funcName = sq_isstring(nc->_name) ? sq_get_stringval(nc->_name) : _SC("<null-name>");
             streamprintf(stream, _SC("%s(0x%p \"%s\")"), GetTypeName(o), (void*)nc, funcName);
             break;
         }
         case OT_FUNCPROTO:
         {
-            SQFunctionProto *func = _funcproto(o);
-            const SQChar* funcName = sq_isstring(func->_name) ? _stringval(func->_name) : _SC("<null-name>");
+            SQFunctionProto *func = sq_get_funcproto(o);
+            const SQChar* funcName = sq_isstring(func->_name) ? sq_get_stringval(func->_name) : _SC("<null-name>");
             streamprintf(stream, _SC("%s(0x%p \"%s\")"), GetTypeName(o), (void*)func, funcName);
             break;
         }
         case OT_GENERATOR:
         {
-            SQGenerator *gen = _generator(o);
-            SQObjectPtr nameObj = _closure(gen->_closure)->_function->_name;
-            const SQChar* funcName = sq_isstring(nameObj) ? _stringval(nameObj) : _SC("<null-name>");
+            SQGenerator *gen = sq_get_generator(o);
+            SQObjectPtr nameObj = sq_get_closure(gen->_closure)->_function->_name;
+            const SQChar* funcName = sq_isstring(nameObj) ? sq_get_stringval(nameObj) : _SC("<null-name>");
             streamprintf(stream, _SC("%s(0x%p \"%s\")"), GetTypeName(o), (void*)gen, funcName);
             break;
         }
-        default: streamprintf(stream, _SC("%s(0x%p)"), GetTypeName(o), (void*)_rawval(o)); break;
+        default: streamprintf(stream, _SC("%s(0x%p)"), GetTypeName(o), (void*)sq_get_rawval(o)); break;
     }
 }
 
@@ -368,7 +368,7 @@ static void DumpLocals(OutputStream *stream, const SQLocalVarInfo *_localvarinfo
     streamprintf(stream, _SC("-----LOCALS\n"));
     for (SQInt32 si = 0; si < _nlocalvarinfos; si++) {
         SQLocalVarInfo lvi = _localvarinfos[si];
-        streamprintf(stream, _SC("[%d] %s \t%d %d\n"), (SQInt32)lvi._pos, _stringval(lvi._name), (SQInt32)lvi._start_op, (SQInt32)lvi._end_op);
+        streamprintf(stream, _SC("[%d] %s \t%d %d\n"), (SQInt32)lvi._pos, sq_get_stringval(lvi._name), (SQInt32)lvi._start_op, (SQInt32)lvi._end_op);
     }
 }
 
@@ -404,13 +404,13 @@ void Dump(OutputStream *stream, SQFunctionProto *func, bool deep, int instructio
         for (i = 0; i < func->_nfunctions; ++i) {
             SQObjectPtr &f = func->_functions[i];
             assert(sq_isfunction(f));
-            Dump(stream, _funcproto(f), deep, -1);
+            Dump(stream, sq_get_funcproto(f), deep, -1);
         }
     }
     streamprintf(stream, _SC("SQInstruction sizeof %d\n"), (SQInt32)sizeof(SQInstruction));
     streamprintf(stream, _SC("SQObject sizeof %d\n"), (SQInt32)sizeof(SQObject));
     streamprintf(stream, _SC("--------------------------------------------------------------------\n"));
-    streamprintf(stream, _SC("*****FUNCTION [%s]\n"), sq_type(func->_name) == OT_STRING ? _stringval(func->_name) : _SC("unknown"));
+    streamprintf(stream, _SC("*****FUNCTION [%s]\n"), sq_type(func->_name) == OT_STRING ? sq_get_stringval(func->_name) : _SC("unknown"));
     DumpLiterals(stream, func->_literals, func->_nliterals);
     DumpStaticMemos(stream, func->_staticmemos, func->_nstaticmemos);
     streamprintf(stream, _SC("-----RESULT TYPE MASK = 0x%X\n"), func->_result_type_mask);
@@ -439,7 +439,7 @@ void ResetStaticMemos(SQFunctionProto *func, SQSharedState *ss)
     for (int i = 0; i < func->_nfunctions; i++) {
         SQObjectPtr &f = func->_functions[i];
         assert(sq_isfunction(f));
-        ResetStaticMemos(_funcproto(f), ss);
+        ResetStaticMemos(sq_get_funcproto(f), ss);
     }
 
     if (func->_nstaticmemos) {
@@ -482,7 +482,7 @@ SQInteger SQFuncState::GetConstant(const SQObjectPtr &cons, int max_const_no)
 {
     SQObjectPtr val;
     max_const_no = max_const_no < MAX_LITERALS ? max_const_no : MAX_LITERALS;
-    if(!_table(_literals)->Get(cons,val))
+    if(!sq_get_table(_literals)->Get(cons,val))
     {
         if(_nliterals >= max_const_no) {
             if (max_const_no == MAX_LITERALS)
@@ -493,10 +493,10 @@ SQInteger SQFuncState::GetConstant(const SQObjectPtr &cons, int max_const_no)
                 return -1;
         }
         val = _nliterals;
-        _table(_literals)->NewSlot(cons,val);
+        sq_get_table(_literals)->NewSlot(cons,val);
         _nliterals++;
     }
-    int iv = _integer(val);
+    int iv = sq_get_integer(val);
     return iv <= max_const_no ? iv : -1;
 }
 
@@ -628,7 +628,7 @@ SQInteger SQFuncState::GetLocalVariable(const SQObject &name, char &varFlags, Ex
     SQInteger locals=_vlocals.size();
     while(locals>=1){
         SQLocalVarInfo &lvi = _vlocals[locals-1];
-        if(sq_type(lvi._name)==OT_STRING && _string(lvi._name)==_string(name)){
+        if(sq_type(lvi._name)==OT_STRING && sq_get_string(lvi._name)==sq_get_string(name)){
             varFlags = lvi._varFlags;
             if (node)
                 *node = _vlocals_nodes[locals - 1];
@@ -654,7 +654,7 @@ SQInteger SQFuncState::GetOuterVariable(const SQObject &name, char &varFlags, Ex
 {
     SQInteger outers = _outervalues.size();
     for(SQInteger i = 0; i<outers; i++) {
-        if(_string(_outervalues[i]._name) == _string(name)) {
+        if(sq_get_string(_outervalues[i]._name) == sq_get_string(name)) {
             varFlags = _outervalues[i]._varFlags;
             if (node)
                 *node = _outervalues_nodes[i];
@@ -972,8 +972,8 @@ SQFunctionProto *SQFuncState::BuildProto()
     f->_inside_hoisted_scope = _hoistLevel > 0;
     f->_result_type_mask = _result_type_mask;
 
-    while((idx=_table(_literals)->Next(false,refidx,key,val))!=-1) {
-        f->_literals[_integer(val)]=key;
+    while((idx=sq_get_table(_literals)->Next(false,refidx,key,val))!=-1) {
+        f->_literals[sq_get_integer(val)]=key;
         refidx=idx;
     }
 

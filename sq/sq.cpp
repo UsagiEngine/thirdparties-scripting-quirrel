@@ -312,8 +312,8 @@ static bool parse_types_from_file(HSQUIRRELVM sqvm, const char *filename)
                 SQObjectPtr errorString;
                 if (sq_parse_function_type_string(sqvm, line.c_str(), t, errorPos, errorString)) {
                     SQObjectPtr s = sq_stringify_function_type(sqvm, t);
-                    printf("%s\n", _stringval(s));
-                    printf("  functionName: %s\n", _stringval(t.functionName));
+                    printf("%s\n", sq_get_stringval(s));
+                    printf("  functionName: %s\n", sq_get_stringval(t.functionName));
                     printf("  returnTypeMask: 0x%x\n", unsigned(t.returnTypeMask));
                     printf("  objectTypeMask: 0x%x\n", unsigned(t.objectTypeMask));
                     printf("  ellipsisArgTypeMask: 0x%x\n", unsigned(t.ellipsisArgTypeMask));
@@ -322,7 +322,7 @@ static bool parse_types_from_file(HSQUIRRELVM sqvm, const char *filename)
                     printf("\n");
                 }
                 else {
-                    printf("ERROR: %s\n", _stringval(errorString));
+                    printf("ERROR: %s\n", sq_get_stringval(errorString));
                     printf("at %s:%d:%d\n\n", filename, lineNum, int(errorPos));
                 }
 

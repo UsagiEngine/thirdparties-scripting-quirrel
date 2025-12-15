@@ -14,11 +14,11 @@ SQRESULT sq_getfunctioninfo(HSQUIRRELVM v,SQInteger level,SQFunctionInfo *fi)
     if (cssize > level) {
         SQVM::CallInfo &ci = v->_callsstack[cssize-level-1];
         if(sq_isclosure(ci._closure)) {
-            SQClosure *c = _closure(ci._closure);
+            SQClosure *c = sq_get_closure(ci._closure);
             SQFunctionProto *proto = c->_function;
             fi->funcid = proto;
-            fi->name = sq_type(proto->_name) == OT_STRING?_stringval(proto->_name):_SC("unknown");
-            fi->source = sq_type(proto->_sourcename) == OT_STRING?_stringval(proto->_sourcename):_SC("unknown");
+            fi->name = sq_type(proto->_name) == OT_STRING?sq_get_stringval(proto->_name):_SC("unknown");
+            fi->source = sq_type(proto->_sourcename) == OT_STRING?sq_get_stringval(proto->_sourcename):_SC("unknown");
             fi->line = proto->_lineinfos->_first_line;
             return SQ_OK;
         }
@@ -34,19 +34,19 @@ SQRESULT sq_stackinfos(HSQUIRRELVM v, SQInteger level, SQStackInfos *si)
         SQVM::CallInfo &ci = v->_callsstack[cssize-level-1];
         switch (sq_type(ci._closure)) {
         case OT_CLOSURE:{
-            SQFunctionProto *func = _closure(ci._closure)->_function;
+            SQFunctionProto *func = sq_get_closure(ci._closure)->_function;
             if (sq_type(func->_name) == OT_STRING)
-                si->funcname = _stringval(func->_name);
+                si->funcname = sq_get_stringval(func->_name);
             if (sq_type(func->_sourcename) == OT_STRING)
-                si->source = _stringval(func->_sourcename);
+                si->source = sq_get_stringval(func->_sourcename);
             si->line = func->GetLine(ci._ip);
             break;
         }
         case OT_NATIVECLOSURE:
             si->source = _SC("NATIVE");
             si->funcname = _SC("unknown");
-            if(sq_type(_nativeclosure(ci._closure)->_name) == OT_STRING)
-                si->funcname = _stringval(_nativeclosure(ci._closure)->_name);
+            if(sq_type(sq_get_nativeclosure(ci._closure)->_name) == OT_STRING)
+                si->funcname = sq_get_stringval(sq_get_nativeclosure(ci._closure)->_name);
             si->line = -1;
             break;
         default: break; //shutup compiler
@@ -75,14 +75,14 @@ SQString *SQVM::PrintObjVal(const SQObject &o)
 {
     switch(sq_type(o)) {
     case OT_STRING:
-        scsprintf(_sp(NUMBER_MAX_CHAR+1),NUMBER_MAX_CHAR, _SC("'%s' (type='%s')"), _stringval(o), GetTypeName(o));
+        scsprintf(_sp(NUMBER_MAX_CHAR+1),NUMBER_MAX_CHAR, _SC("'%s' (type='%s')"), sq_get_stringval(o), GetTypeName(o));
         return SQString::Create(_ss(this), _spval);
     case OT_INTEGER:
-        scsprintf(_sp(NUMBER_MAX_CHAR+1),NUMBER_MAX_CHAR, _SC("'") _PRINT_INT_FMT _SC("' (type='%s')"), _integer(o), GetTypeName(o));
+        scsprintf(_sp(NUMBER_MAX_CHAR+1),NUMBER_MAX_CHAR, _SC("'") _PRINT_INT_FMT _SC("' (type='%s')"), sq_get_integer(o), GetTypeName(o));
         return SQString::Create(_ss(this), _spval);
         break;
     case OT_FLOAT:
-        scsprintf(_sp(NUMBER_MAX_CHAR+1), NUMBER_MAX_CHAR, _SC("'%.14g' (type='%s')"),  _float(o), GetTypeName(o));
+        scsprintf(_sp(NUMBER_MAX_CHAR+1), NUMBER_MAX_CHAR, _SC("'%.14g' (type='%s')"),  sq_get_float(o), GetTypeName(o));
         return SQString::Create(_ss(this), _spval);
         break;
     default:
@@ -93,13 +93,13 @@ SQString *SQVM::PrintObjVal(const SQObject &o)
 void SQVM::Raise_IdxError(const SQObjectPtr &o)
 {
     SQObjectPtr oval(PrintObjVal(o));
-    Raise_Error(_SC("the index %.50s does not exist"), _stringval(oval));
+    Raise_Error(_SC("the index %.50s does not exist"), sq_get_stringval(oval));
 }
 
 void SQVM::Raise_CompareError(const SQObject &o1, const SQObject &o2)
 {
     SQObjectPtr oval1(PrintObjVal(o1)), oval2(PrintObjVal(o2));
-    Raise_Error(_SC("comparison between %.50s and %.50s"), _stringval(oval1), _stringval(oval2));
+    Raise_Error(_SC("comparison between %.50s and %.50s"), sq_get_stringval(oval1), sq_get_stringval(oval2));
 }
 
 
@@ -117,5 +117,5 @@ void SQVM::Raise_ParamTypeError(SQInteger nparam,SQInteger typemask,SQInteger ty
         }
     }
     Raise_Error(_SC("parameter %d has an invalid type '%s' ; expected: '%s'"), (int)nparam,
-                IdType2Name((SQObjectType)type), _stringval(exptypes));
+                IdType2Name((SQObjectType)type), sq_get_stringval(exptypes));
 }

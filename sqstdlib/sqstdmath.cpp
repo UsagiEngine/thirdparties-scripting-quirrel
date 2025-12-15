@@ -59,9 +59,9 @@ static SQInteger math_abs(HSQUIRRELVM v)
     SQObject arg;
     sq_getstackobj(v, 2, &arg);
     if (sq_type(arg) == OT_FLOAT)
-        sq_pushfloat(v, fabs(_float(arg)));
+        sq_pushfloat(v, fabs(sq_get_float(arg)));
     else
-        sq_pushinteger(v, abs(_integer(arg)));
+        sq_pushinteger(v, abs(sq_get_integer(arg)));
     return 1;
 }
 

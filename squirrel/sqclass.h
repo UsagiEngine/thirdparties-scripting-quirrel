@@ -17,17 +17,74 @@ struct SQClassMember {
 
 typedef sqvector<SQClassMember> SQClassMemberVec;
 
-#define MEMBER_MAX_COUNT_BIT_SHIFT 22
-#define MEMBER_TYPE_FIELD (0x01<<MEMBER_MAX_COUNT_BIT_SHIFT)
-#define MEMBER_TYPE_METHOD (0x02<<MEMBER_MAX_COUNT_BIT_SHIFT)
-#define MEMBER_MAX_COUNT ((1<<MEMBER_MAX_COUNT_BIT_SHIFT)-1)
+// -----------------------------------------------------------------------------
+// Member Indexing Constants
+// -----------------------------------------------------------------------------
 
-#define _isfieldi(o) ((o)&MEMBER_TYPE_FIELD)
-#define _member_idxi(o) ((o)&MEMBER_MAX_COUNT)
-#define _isfield(o) (_isfieldi(_integer(o)))
-#define _make_method_idx(i) ((SQInteger)(MEMBER_TYPE_METHOD|(i)))
-#define _make_field_idx(i) ((SQInteger)(MEMBER_TYPE_FIELD|(i)))
-#define _member_idx(o) (_member_idxi(_integer(o)))
+constexpr inline std::uint8_t SQ_MEMBER_MAX_COUNT_BIT_SHIFT = 22;
+
+constexpr inline uint32_t SQ_MEMBER_TYPE_FIELD =
+    0x01u << SQ_MEMBER_MAX_COUNT_BIT_SHIFT;
+constexpr inline SQInteger SQ_MEMBER_TYPE_METHOD =
+    0x02u << SQ_MEMBER_MAX_COUNT_BIT_SHIFT;
+constexpr inline uint32_t SQ_MEMBER_MAX_COUNT =
+    (0x01u << SQ_MEMBER_MAX_COUNT_BIT_SHIFT) - 1;
+
+// -----------------------------------------------------------------------------
+// Member Indexing Helpers (Raw Integer)
+// -----------------------------------------------------------------------------
+
+// Replaces: _isfieldi(o) ((o)&MEMBER_TYPE_FIELD)
+[[nodiscard]]
+constexpr bool sq_is_field_idx(const uint32_t val)
+{
+    return (val & SQ_MEMBER_TYPE_FIELD) != 0;
+}
+
+// Replaces: _member_idxi(o) ((o)&MEMBER_MAX_COUNT)
+[[nodiscard]]
+constexpr uint32_t sq_get_member_idx_from_field_idx(const uint32_t val)
+{
+    return val & SQ_MEMBER_MAX_COUNT;
+}
+
+// Replaces: _make_method_idx(i)
+[[nodiscard]]
+// Result cast to SQInteger to satisfy SQObjectPtr
+constexpr SQInteger sq_make_method_idx(const std::uint32_t idx)
+{
+    return SQ_MEMBER_TYPE_METHOD | idx;
+}
+
+// Replaces: _make_field_idx(i)
+[[nodiscard]]
+// Result cast to SQInteger to satisfy SQObjectPtr
+constexpr SQInteger sq_make_field_idx(const std::uint32_t idx)
+{
+    return SQ_MEMBER_TYPE_FIELD | idx;
+}
+
+// -----------------------------------------------------------------------------
+// Member Indexing Helpers (Object-based)
+// -----------------------------------------------------------------------------
+
+// Replaces: _isfield(o) -> _isfieldi(sq_get_integer(o))
+[[nodiscard]]
+constexpr bool sq_obj_is_field(auto && o)
+{
+    return sq_is_field_idx(
+        static_cast<uint32_t>(sq_get_integer(std::forward<decltype(o)>(o)))
+    );
+}
+
+// Replaces: _member_idx(o) -> _member_idxi(sq_get_integer(o))
+[[nodiscard]]
+constexpr uint32_t sq_get_member_idx(auto && o)
+{
+    return sq_get_member_idx_from_field_idx(
+        static_cast<uint32_t>(sq_get_integer(std::forward<decltype(o)>(o)))
+    );
+}
 
 struct SQClass : public CHAINABLE_OBJ
 {
@@ -38,12 +95,12 @@ public:
     bool NewSlot(SQSharedState *ss, const SQObjectPtr &key,const SQObjectPtr &val,bool bstatic);
     bool Get(const SQObjectPtr &key,SQObjectPtr &val) const {
         if(_members->Get(key,val)) {
-            if(_isfield(val)) {
-                SQObjectPtr &o = _defaultvalues[_member_idx(val)].val;
+            if(sq_obj_is_field(val)) {
+                SQObjectPtr &o = _defaultvalues[sq_get_member_idx(val)].val;
                 val = sq_maybe_deref_weakptr(o);
             }
             else {
-                val = _methods[_member_idx(val)].val;
+                val = _methods[sq_get_member_idx(val)].val;
             }
             return true;
         }
@@ -127,25 +184,25 @@ public:
     }
     ~SQInstance();
     inline void GetMember(uint32_t idx, SQObjectPtr &val) const {
-        if (_isfieldi(idx))
-            val = sq_maybe_deref_weakptr(_values[_member_idxi(idx)]);
+        if (sq_is_field_idx(idx))
+            val = sq_maybe_deref_weakptr(_values[sq_get_member_idx_from_field_idx(idx)]);
         else
-            val = _class->_methods[_member_idxi(idx)].val;
+            val = _class->_methods[sq_get_member_idx_from_field_idx(idx)].val;
     }
     bool Get(const SQObjectPtr &key,SQObjectPtr &val) const {
         if(_class->_members->Get(key,val)) {
-            GetMember(_integer(val), val);
+            GetMember(sq_get_integer(val), val);
             return true;
         }
         return false;
     }
     __forceinline void SetMemberField(uint32_t idx, const SQObjectPtr &val) {
-        _values[_member_idxi(idx)] = val;
+        _values[sq_get_member_idx_from_field_idx(idx)] = val;
     }
     bool Set(const SQObjectPtr &key,const SQObjectPtr &val) {
         SQObjectPtr idx;
-        if(_class->_members->Get(key,idx) && _isfield(idx)) {
-            SetMemberField(_integer(idx), val);
+        if(_class->_members->Get(key,idx) && sq_obj_is_field(idx)) {
+            SetMemberField(sq_get_integer(idx), val);
             return true;
         }
         return false;

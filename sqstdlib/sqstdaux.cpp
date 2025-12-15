@@ -34,18 +34,18 @@ static void print_simple_value(HSQUIRRELVM v, PrintFunc pf, SQObjectPtr &val, bo
             if (v->ToString(val, valStr))
             {
                 if (string_quotes)
-                    pf(v, _SC("\"%s\""), _stringval(valStr));
+                    pf(v, _SC("\"%s\""), sq_get_stringval(valStr));
                 else
-                    pf(v, _SC("%s"), _stringval(valStr));
+                    pf(v, _SC("%s"), sq_get_stringval(valStr));
             }
             break;
         case OT_CLOSURE:
-            if (v->ToString(_closure(val)->_function->_name, valStr))
-                pf(v, _SC("FN:%s"), _stringval(valStr));
+            if (v->ToString(sq_get_closure(val)->_function->_name, valStr))
+                pf(v, _SC("FN:%s"), sq_get_stringval(valStr));
             break;
         case OT_NATIVECLOSURE:
-            if (v->ToString(_nativeclosure(val)->_name, valStr))
-                pf(v, _SC("FN:%s"), _stringval(valStr));
+            if (v->ToString(sq_get_nativeclosure(val)->_name, valStr))
+                pf(v, _SC("FN:%s"), sq_get_stringval(valStr));
             break;
         case OT_TABLE:
             pf(v, _SC("TABLE"));
@@ -58,7 +58,7 @@ static void print_simple_value(HSQUIRRELVM v, PrintFunc pf, SQObjectPtr &val, bo
             break;
         default:
             if (v->ToString(val, valStr))
-                pf(v, _SC("%s"), _stringval(valStr));
+                pf(v, _SC("%s"), sq_get_stringval(valStr));
         break;
     }
 }
@@ -127,7 +127,7 @@ static void collect_stack_string(HSQUIRRELVM v, PrintFunc pf)
             case OT_TABLE:
                 {
                     pf(v,_SC("[%s] TABLE={"),name);
-                    SQTable * t = _table(stack_get(v, -1));
+                    SQTable * t = sq_get_table(stack_get(v, -1));
                     SQObjectPtr refidx, key, val;
                     SQInteger idx;
                     SQInteger count = 0;
@@ -153,7 +153,7 @@ static void collect_stack_string(HSQUIRRELVM v, PrintFunc pf)
             case OT_ARRAY:
                 {
                     pf(v,_SC("[%s] ARRAY=["),name);
-                    SQArray * a = _array(stack_get(v, -1));
+                    SQArray * a = sq_get_array(stack_get(v, -1));
                     SQObjectPtr val;
                     for (SQInteger i = 0; i < a->Size(); i++) {
                         a->Get(i, val);

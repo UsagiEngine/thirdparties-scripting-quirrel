@@ -26,9 +26,9 @@ inline SQUnsignedInteger32 sq_float_hash32(float v)
 inline SQHash HashObj(const SQObject &key)
 {
     switch(sq_type(key)) {
-        case OT_STRING:     return _string(key)->_hash;
-        case OT_FLOAT:      return (SQHash)(sq_float_hash32(_float(key)));
-        case OT_BOOL: case OT_INTEGER:  return (SQHash)((SQInteger)_integer(key));
+        case OT_STRING:     return sq_get_string(key)->_hash;
+        case OT_FLOAT:      return (SQHash)(sq_float_hash32(sq_get_float(key)));
+        case OT_BOOL: case OT_INTEGER:  return (SQHash)((SQInteger)sq_get_integer(key));
         default:            return hashptr(key._unVal.pRefCounted);
     }
 }
@@ -86,7 +86,7 @@ public:
     {
         _HashNode *n = &_nodes[hash];
         do{
-            if(_rawval(n->key) == key && sq_type(n->key) == OT_STRING){
+            if(sq_get_rawval(n->key) == key && sq_type(n->key) == OT_STRING){
                 return n;
             }
         }while((n = n->next));
@@ -96,7 +96,7 @@ public:
     {
         _HashNode *n = &_nodes[hash];
         do{
-            if(_rawval(n->key) == _rawval(key) && sq_type(n->key) == sq_type(key)){
+            if(sq_get_rawval(n->key) == sq_get_rawval(key) && sq_type(n->key) == sq_type(key)){
                 return n;
             }
         }while((n = n->next));
@@ -110,7 +110,7 @@ public:
         _HashNode *res = NULL;
         do{
             if (sq_type(n->key) == OT_STRING &&
-               (keylen == _string(n->key)->_len && strncmp(_stringval(n->key), key, keylen) == 0))
+               (keylen == sq_get_string(n->key)->_len && strncmp(sq_get_stringval(n->key), key, keylen) == 0))
             {
                 res = n;
                 break;
@@ -132,7 +132,7 @@ public:
             assert(!"Node index is out of range");
         else if (!sq_isstring(_nodes[nodeIdx].key))
             assert(!"Node key is not a string");
-        else if (_string(_nodes[nodeIdx].key) != _string(key))
+        else if (sq_get_string(_nodes[nodeIdx].key) != sq_get_string(key))
             assert(!"Literal key mismatch");
         else
             return _nodes + nodeIdx;

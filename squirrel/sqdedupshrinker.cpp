@@ -48,7 +48,7 @@ public:
       {
         obj._flags |= SQOBJ_FLAG_IMMUTABLE;
         bool simpleTypes = true;
-        SQTable *t = _table(obj);
+        SQTable *t = sq_get_table(obj);
         int itemsCount = t->CountUsed();
 
         SQTable::_HashNode *nodes = t->_nodes;
@@ -59,7 +59,7 @@ public:
         {
           uint32_t hash = calc_shrinker_hash((uint32_t *)nodes, allocatedNodes * sizeof(SQTable::_HashNode));
           cacheIndex = hash & (CACHE_SIZE - 1);
-          if (sq_istable(tableCache[cacheIndex]) && t->IsBinaryEqual(_table(tableCache[cacheIndex])))
+          if (sq_istable(tableCache[cacheIndex]) && t->IsBinaryEqual(sq_get_table(tableCache[cacheIndex])))
           {
             obj = tableCache[cacheIndex];
             return true;
@@ -67,10 +67,10 @@ public:
         }
 
         for (void *p : visitedTables)
-          if (p == _table(obj))
+          if (p == sq_get_table(obj))
             return false;
 
-        visitedTables.push_back(_table(obj));
+        visitedTables.push_back(sq_get_table(obj));
 
         for (int i = 0; i < allocatedNodes; i++)
         {
@@ -94,7 +94,7 @@ public:
       case OT_ARRAY:
       {
         bool simpleTypes = true;
-        SQArray *array = _array(obj);
+        SQArray *array = sq_get_array(obj);
         array->ShrinkIfNeeded();
         obj._flags |= SQOBJ_FLAG_IMMUTABLE;
         int cacheIndex = 0;
@@ -103,7 +103,7 @@ public:
         {
           uint32_t hash = calc_shrinker_hash((uint32_t *)&array->_values[0], array->Size() * sizeof(SQObjectPtr));
           cacheIndex = hash & (CACHE_SIZE - 1);
-          if (sq_isarray(arrayCache[cacheIndex]) && array->IsBinaryEqual(_array(arrayCache[cacheIndex])))
+          if (sq_isarray(arrayCache[cacheIndex]) && array->IsBinaryEqual(sq_get_array(arrayCache[cacheIndex])))
           {
             obj = arrayCache[cacheIndex];
             return true;
@@ -111,10 +111,10 @@ public:
         }
 
         for (void *p : visitedArrays)
-          if (p == _array(obj))
+          if (p == sq_get_array(obj))
             return false;
 
-        visitedArrays.push_back(_array(obj));
+        visitedArrays.push_back(sq_get_array(obj));
 
         for (int i = 0; i < int(array->Size()); i++)
         {

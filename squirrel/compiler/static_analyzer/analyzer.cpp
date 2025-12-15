@@ -3530,7 +3530,7 @@ bool CheckerVisitor::hasDynamicContent(const SQObject &container) {
     return false;
   SQObjectPtr key(_ctx.getVm(), "__dynamic_content__");
   SQObjectPtr val;
-  return _table(container)->Get(key, val);
+  return sq_get_table(container)->Get(key, val);
 }
 
 void CheckerVisitor::checkExternalField(const GetFieldExpr *acc) {
@@ -4947,8 +4947,8 @@ void CheckerVisitor::checkArguments(const CallExpr *callExpr) {
 
     const SQObject& v = ev->value();
     if (sq_isclosure(v)) {
-      proto = _closure(v)->_function;
-      funcName = sq_isstring(proto->_name) ? _stringval(proto->_name) : _SC("unknown");
+      proto = sq_get_closure(v)->_function;
+      funcName = sq_isstring(proto->_name) ? sq_get_stringval(proto->_name) : _SC("unknown");
       numParams = proto->_nparameters - 1; // not counting 'this'
       isVararg = proto->_varparams;
       dpParameters = proto->_ndefaultparams;
@@ -4958,10 +4958,10 @@ void CheckerVisitor::checkArguments(const CallExpr *callExpr) {
       return;
     }
     else if (sq_isnativeclosure(v)) {
-      nclosure = _nativeclosure(v);
+      nclosure = sq_get_nativeclosure(v);
       if (nclosure->_nparamscheck == 0)
         return;
-      funcName = sq_isstring(nclosure->_name) ? _stringval(nclosure->_name) : _SC("unknown native");
+      funcName = sq_isstring(nclosure->_name) ? sq_get_stringval(nclosure->_name) : _SC("unknown native");
       numParams = std::abs(nclosure->_nparamscheck)-1; // not counting 'this'
       isVararg = nclosure->_nparamscheck < 0;
       dpParameters = 0;
@@ -4989,7 +4989,7 @@ void CheckerVisitor::checkArguments(const CallExpr *callExpr) {
     if (info) paramName = info->parameters[i];
     else if (proto) {
       if (!sq_isstring(proto->_parameters[i + 1])) continue;
-      paramName = _stringval(proto->_parameters[i + 1]);
+      paramName = sq_get_stringval(proto->_parameters[i + 1]);
     }
     else {
       if (!nclosure)
@@ -7928,7 +7928,7 @@ void CheckerVisitor::visitDestructuringDecl(DestructuringDecl *d) {
       }
       else if (sq_istable(init)) {
         if (d->type() == DT_TABLE) {
-          auto table = _table(init);
+          auto table = sq_get_table(init);
           for (auto var : d->declarations()) {
             SQObjectPtr val;
             if (table->GetStr(var->name(), strlen(var->name()), val)) {
@@ -7948,7 +7948,7 @@ void CheckerVisitor::visitDestructuringDecl(DestructuringDecl *d) {
       }
       else if (sq_isclass(init)) {
         if (d->type() == DT_TABLE) {
-          auto klass = _class(init);
+          auto klass = sq_get_class(init);
           for (auto var : d->declarations()) {
             SQObjectPtr key(_ctx.getVm(), var->name());
             SQObjectPtr val;
@@ -7969,7 +7969,7 @@ void CheckerVisitor::visitDestructuringDecl(DestructuringDecl *d) {
       }
       else if (sq_isinstance(init)) {
         if (d->type() == DT_TABLE) {
-          auto inst = _instance(init);
+          auto inst = sq_get_instance(init);
           for (auto var : d->declarations()) {
             SQObjectPtr key(_ctx.getVm(), var->name());
             SQObjectPtr val;
@@ -7990,7 +7990,7 @@ void CheckerVisitor::visitDestructuringDecl(DestructuringDecl *d) {
       }
       else if (sq_isarray(init)) {
         if (d->type() == DT_ARRAY) {
-          auto array = _array(init);
+          auto array = sq_get_array(init);
           SQInteger index = 0;
           for (auto var : d->declarations()) {
             SQObjectPtr val;
@@ -8087,14 +8087,14 @@ void CheckerVisitor::analyze(RootBlock *root, const HSQOBJECT *bindings) {
   currentScope = &rootScope;
 
   if (bindings && sq_istable(*bindings)) {
-    SQTable *table = _table(*bindings);
+    SQTable *table = sq_get_table(*bindings);
 
     SQInteger idx = 0;
     SQObjectPtr pos(idx), key, val;
 
     while ((idx = table->Next(false, pos, key, val)) >= 0) {
       if (sq_isstring(key)) {
-        const SQChar *name = _string(key)->_val;
+        const SQChar *name = sq_get_string(key)->_val;
         declareSymbol(name, addExternalValue(val, root));
       }
       pos._unVal.nInteger = idx;
@@ -8213,14 +8213,14 @@ public:
 
 void NameShadowingChecker::loadBindings(const HSQOBJECT *bindings) {
   if (bindings && sq_istable(*bindings)) {
-    SQTable *table = _table(*bindings);
+    SQTable *table = sq_get_table(*bindings);
 
     SQInteger idx = 0;
     SQObjectPtr pos(idx), key, val;
 
     while ((idx = table->Next(false, pos, key, val)) >= 0) {
       if (sq_isstring(key)) {
-        const SQChar *s = _string(key)->_val;
+        const SQChar *s = sq_get_string(key)->_val;
         SymbolInfo *info = newSymbolInfo(SK_EXTERNAL_BINDING);
         declareSymbol(s, info);
       }
@@ -8561,15 +8561,15 @@ void StaticAnalyzer::checkTrailingWhitespaces(HSQUIRRELVM vm, const SQChar *sour
 
 void StaticAnalyzer::mergeKnownBindings(const HSQOBJECT *bindings) {
   if (bindings && sq_istable(*bindings)) {
-    SQTable *table = _table(*bindings);
+    SQTable *table = sq_get_table(*bindings);
 
     SQInteger idx = 0;
     SQObjectPtr pos(idx), key, val;
 
     while ((idx = table->Next(false, pos, key, val)) >= 0) {
       if (sq_isstring(key)) {
-        SQInteger len = _string(key)->_len;
-        const SQChar *s = _string(key)->_val;
+        SQInteger len = sq_get_string(key)->_len;
+        const SQChar *s = sq_get_string(key)->_val;
         knownBindings.emplace(std::string(s, s+len));
       }
       pos._unVal.nInteger = idx;

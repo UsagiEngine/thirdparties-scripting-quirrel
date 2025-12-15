@@ -111,8 +111,8 @@ const SQChar *SQLexer::Tok2Str(SQInteger tok)
     SQInteger nitr;
     while((nitr = _keywords->Next(false,itr, key, val)) != -1) {
         itr = (SQInteger)nitr;
-        if(((SQInteger)_integer(val)) == tok)
-            return _stringval(key);
+        if(((SQInteger)sq_get_integer(val)) == tok)
+            return sq_get_stringval(key);
     }
     return NULL;
 }
@@ -404,7 +404,7 @@ SQInteger SQLexer::GetIDType(const SQChar *s,SQInteger len)
 {
     SQObjectPtr t;
     if(_keywords->GetStr(s,len, t)) {
-        return SQInteger(_integer(t));
+        return SQInteger(sq_get_integer(t));
     }
     return TK_IDENTIFIER;
 }

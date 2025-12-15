@@ -27,12 +27,12 @@ static SQInteger math_recursive_hash_impl(HSQUIRRELVM vm, HSQOBJECT &obj, SQUnsi
     case OT_NULL:
     case OT_BOOL:
     case OT_INTEGER:
-      out_hash = (SQUnsignedInteger(_integer(obj)) ^ prev_hash) * SQ_M_HASH_MULTIPLIER;
+      out_hash = (SQUnsignedInteger(sq_get_integer(obj)) ^ prev_hash) * SQ_M_HASH_MULTIPLIER;
       break;
     case OT_FLOAT: {
       #ifdef SQUSEDOUBLE
         uint64_t fbits = 0;
-        memcpy(&fbits, &_float(obj), sizeof(SQFloat));
+        memcpy(&fbits, &sq_get_float(obj), sizeof(SQFloat));
         out_hash = (SQUnsignedInteger(fbits ^ (fbits >> 42u)) ^ prev_hash) * SQ_M_HASH_MULTIPLIER;
       #else
         uint32_t fbits = 0;
@@ -42,13 +42,13 @@ static SQInteger math_recursive_hash_impl(HSQUIRRELVM vm, HSQOBJECT &obj, SQUnsi
       break;
     }
     case OT_STRING: {
-      SQString *str = _string(obj);
+      SQString *str = sq_get_string(obj);
       out_hash = (prev_hash ^ str->_len) * SQ_M_HASH_MULTIPLIER;
       out_hash = (out_hash ^ str->_hash) * SQ_M_HASH_MULTIPLIER;
       break;
     }
     case OT_ARRAY: {
-      SQArray *arr = _array(obj);
+      SQArray *arr = sq_get_array(obj);
       SQUnsignedInteger h = prev_hash;
       SQInteger arrSize = arr->Size();
       for (SQInteger i = 0; i < arrSize; ++i) {

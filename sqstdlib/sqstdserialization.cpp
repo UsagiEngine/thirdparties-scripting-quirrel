@@ -64,9 +64,9 @@ struct SQStreamSerializer {
 
     int getCountOfParams(SQObjectPtr obj) {
         if (sq_isclosure(obj))
-            return _closure(obj)->_function->_nparameters;
+            return sq_get_closure(obj)->_function->_nparameters;
         else if (sq_isnativeclosure(obj))
-            return _nativeclosure(obj)->_nparamscheck;
+            return sq_get_nativeclosure(obj)->_nparamscheck;
         else
             return -1;
     }
@@ -83,7 +83,7 @@ struct SQStreamSerializer {
             return false;
         }
 
-        SQTable *tbl = _table(availableClasses);
+        SQTable *tbl = sq_get_table(availableClasses);
         SQTable::_HashNode *node = tbl->_nodes;
         uint32_t count = tbl->_numofnodes_minus_one + 1;
 
@@ -96,8 +96,8 @@ struct SQStreamSerializer {
             if (!sq_isclass(value))
                 continue;
 
-            const SQChar *className = _stringval(key);
-            SQClass *cls = _class(value);
+            const SQChar *className = sq_get_stringval(key);
+            SQClass *cls = sq_get_class(value);
             classTable[cls] = { -1, className };
         }
 
@@ -112,12 +112,12 @@ struct SQStreamSerializer {
             stream->Write(&v, sizeof(v));
         }
         else if (sq_isbool(obj)) {
-            uint8_t v = TP_BOOL | (_integer(obj) ? 1 : 0);
+            uint8_t v = TP_BOOL | (sq_get_integer(obj) ? 1 : 0);
             stream->Write(&v, sizeof(v));
         }
         else if (sq_isinteger(obj)) {
             uint8_t v = TP_INTEGER;
-            SQInteger iv = _integer(obj);
+            SQInteger iv = sq_get_integer(obj);
             if (iv >= -1 && iv <= 2) {
                 v |= iv + 1; // map -1, 0, 1, 2 to 0, 1, 2, 3
                 stream->Write(&v, sizeof(v));
@@ -149,7 +149,7 @@ struct SQStreamSerializer {
         }
         else if (sq_isfloat(obj)) {
             uint8_t v = TP_FLOAT;
-            SQFloat fv = _float(obj);
+            SQFloat fv = sq_get_float(obj);
             if (fv == SQFloat(-1.0)) {
                 v |= 0; // -1.0
                 stream->Write(&v, sizeof(v));
@@ -190,14 +190,14 @@ struct SQStreamSerializer {
         }
         else if (sq_isstring(obj)) {
             uint8_t v = TP_STRING;
-            SQInteger len = _string(obj)->_len;
+            SQInteger len = sq_get_string(obj)->_len;
             if (len == 0) {
                 v |= 0; // empty string
                 stream->Write(&v, sizeof(v));
             }
             else {
                 // check if the string is new or already in the table
-                SQChar *str = _stringval(obj);
+                SQChar *str = sq_get_stringval(obj);
                 auto it = stringTable.find(str);
                 if (it == stringTable.end()) {
                     if (len <= UINT8_MAX) {
@@ -255,7 +255,7 @@ struct SQStreamSerializer {
             }
 
             uint8_t v = TP_ARRAY;
-            SQArray *arr = _array(obj);
+            SQArray *arr = sq_get_array(obj);
             SQInteger size = arr->Size();
 
             if (size == 0) {
@@ -289,7 +289,7 @@ struct SQStreamSerializer {
             }
 
             uint8_t v = TP_TABLE;
-            SQTable *tbl = _table(obj);
+            SQTable *tbl = sq_get_table(obj);
             SQInteger size = tbl->CountUsed();
 
             if (size == 0) {
@@ -330,7 +330,7 @@ struct SQStreamSerializer {
                 return false;
             }
 
-            SQClass *cls = _instance(obj)->_class;
+            SQClass *cls = sq_get_instance(obj)->_class;
             if (!fillAvailableClassNamesOnDemand())
                 return false;
 
@@ -341,7 +341,7 @@ struct SQStreamSerializer {
             }
 
             SQObjectPtr closure;
-            if (_instance(obj)->Get(getstateProcName, closure)) {
+            if (sq_get_instance(obj)->Get(getstateProcName, closure)) {
                 if (!sq_isclosure(closure) && !sq_isnativeclosure(closure)) {
                     errorString = _SC("Instance method __getstate must be a closure");
                     return false;
@@ -720,7 +720,7 @@ struct SQStreamSerializer {
                         return false;
                     }
 
-                    SQTable *tbl = _table(availableClasses);
+                    SQTable *tbl = sq_get_table(availableClasses);
                     SQObjectPtr classObj;
                     if (!tbl->Get(SQObjectPtr(classNameStr), classObj)) {
                         errorString = _SC("Class not found in available classes during deserialization");
@@ -734,7 +734,7 @@ struct SQStreamSerializer {
 
                     // check number of arguments required by the class constructor (must accept 1 argument - the instance itself)
                     SQObjectPtr constructor;
-                    if (_class(classObj)->GetConstructor(constructor)) {
+                    if (sq_get_class(classObj)->GetConstructor(constructor)) {
                       if (!isClassConstructorValid(constructor))
                         return false;
                     }
@@ -753,7 +753,7 @@ struct SQStreamSerializer {
                 SQObjectPtr classObj = classList[index];
 
                 SQObjectPtr setStateClosure;
-                if (_class(classObj)->Get(setstateProcName, setStateClosure)) {
+                if (sq_get_class(classObj)->Get(setstateProcName, setStateClosure)) {
                     if (!sq_isclosure(setStateClosure) && !sq_isnativeclosure(setStateClosure)) {
                         errorString = _SC("Class method __setstate must be a closure");
                         return false;
@@ -812,7 +812,7 @@ struct SQStreamSerializer {
     {
       if (sq_isclosure(constructor))
       {
-        SQFunctionProto *func = _closure(constructor)->_function;
+        SQFunctionProto *func = sq_get_closure(constructor)->_function;
         SQInteger paramssize = func->_nparameters;
         SQInteger ndef = func->_ndefaultparams;
         SQInteger nargs = 1;
@@ -828,7 +828,7 @@ struct SQStreamSerializer {
       }
       else if (sq_isnativeclosure(constructor))
       {
-        SQNativeClosure *nativeClosure = _nativeclosure(constructor);
+        SQNativeClosure *nativeClosure = sq_get_nativeclosure(constructor);
         if (nativeClosure->_nparamscheck > 1)
         {
           errorString = _SC("Class constructor must accept call with all default arguments during deserialization");

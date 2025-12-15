@@ -148,13 +148,13 @@ bool CodeGenVisitor::generate(RootBlock *root, SQObjectPtr &out) {
 void CodeGenVisitor::CheckDuplicateLocalIdentifier(Node *n, SQObject name, const SQChar *desc, bool ignore_global_consts) {
     char varFlags = 0;
     if (_fs->GetLocalVariable(name, varFlags) >= 0)
-        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, _string(name)->_val, "existing local variable");
-    if (_string(name) == _string(_fs->_name))
-        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, _stringval(name), "function name");
+        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, sq_get_string(name)->_val, "existing local variable");
+    if (sq_get_string(name) == sq_get_string(_fs->_name))
+        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, sq_get_stringval(name), "function name");
 
     SQObjectPtr constant;
     if (ignore_global_consts ? IsLocalConstant(name, constant) : IsConstant(name, constant))
-        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, _stringval(name), "existing constant/enum/import");
+        reportDiagnostic(n, DiagnosticsId::DI_CONFLICTS_WITH, desc, sq_get_stringval(name), "existing constant/enum/import");
 }
 
 static bool compareLiterals(LiteralExpr *a, LiteralExpr *b) {
@@ -689,7 +689,7 @@ bool CodeGenVisitor::DoesObjectContainOnlySimpleObjects(const SQObject &obj, int
     if (sq_istable(obj)) {
         SQInteger idx = 0;
         SQObjectPtr key, val;
-        while ((idx = _table(obj)->Next(true, SQObjectPtr(idx), key, val)) != -1) {
+        while ((idx = sq_get_table(obj)->Next(true, SQObjectPtr(idx), key, val)) != -1) {
             if (!DoesObjectContainOnlySimpleObjects(key, depth + 1))
                 return false;
             if (!DoesObjectContainOnlySimpleObjects(val, depth + 1))
@@ -702,7 +702,7 @@ bool CodeGenVisitor::DoesObjectContainOnlySimpleObjects(const SQObject &obj, int
     if (sq_isclass(obj)) {
         SQInteger idx = 0;
         SQObjectPtr key, val;
-        while ((idx = _class(obj)->Next(SQObjectPtr(idx), key, val)) != -1) {
+        while ((idx = sq_get_class(obj)->Next(SQObjectPtr(idx), key, val)) != -1) {
             if (!DoesObjectContainOnlySimpleObjects(key, depth + 1))
                 return false;
             if (!DoesObjectContainOnlySimpleObjects(val, depth + 1))
@@ -715,7 +715,7 @@ bool CodeGenVisitor::DoesObjectContainOnlySimpleObjects(const SQObject &obj, int
     if (sq_isarray(obj)) {
         SQInteger idx = 0;
         SQObjectPtr key, val;
-        while ((idx = _array(obj)->Next(SQObjectPtr(idx), key, val)) != -1) {
+        while ((idx = sq_get_array(obj)->Next(SQObjectPtr(idx), key, val)) != -1) {
             if (!DoesObjectContainOnlySimpleObjects(val, depth + 1))
                 return false;
         }
@@ -1522,7 +1522,7 @@ void CodeGenVisitor::SaveDocstringToVM(void *key, const DocObject &docObject) {
         SQObjectPtr docKey;
         docKey._type = OT_USERPOINTER;
         docKey._unVal.pUserPointer = key;
-        _table(_ss(_vm)->doc_objects)->NewSlot(docKey, docValue);
+        sq_get_table(_ss(_vm)->doc_objects)->NewSlot(docKey, docValue);
     }
 }
 
@@ -1532,7 +1532,7 @@ SQTable* CodeGenVisitor::GetScopedConstsTable()
     SQObjectPtr &consts = _scopedconsts.top();
     if (sq_type(consts) != OT_TABLE)
         consts = SQTable::Create(_ss(_vm), 0);
-    return _table(consts);
+    return sq_get_table(consts);
 }
 
 SQObjectPtr CodeGenVisitor::convertLiteral(LiteralExpr *lit) {
@@ -1554,7 +1554,7 @@ void CodeGenVisitor::visitConstDecl(ConstDecl *decl) {
 
     CheckDuplicateLocalIdentifier(decl, id, _SC("Constant"), decl->isGlobal() && !(_fs->lang_features & LF_FORBID_GLOBAL_CONST_REWRITE));
 
-    SQTable *constantsTbl = decl->isGlobal() ? _table(_ss(_vm)->_consts) : GetScopedConstsTable();
+    SQTable *constantsTbl = decl->isGlobal() ? sq_get_table(_ss(_vm)->_consts) : GetScopedConstsTable();
 
     ConstGenVisitor constVisitor(_vm, _fs, _ctx, *this);
 
@@ -1576,10 +1576,10 @@ void CodeGenVisitor::visitEnumDecl(EnumDecl *enums) {
 
     for (auto &c : enums->consts()) {
         SQObjectPtr key = _fs->CreateString(c.id);
-        _table(table)->NewSlot(key, convertLiteral(c.val));
+        sq_get_table(table)->NewSlot(key, convertLiteral(c.val));
     }
 
-    SQTable *enumsTable = enums->isGlobal() ? _table(_ss(_vm)->_consts) : GetScopedConstsTable();
+    SQTable *enumsTable = enums->isGlobal() ? sq_get_table(_ss(_vm)->_consts) : GetScopedConstsTable();
     enumsTable->NewSlot(id, SQObjectPtr(table));
 }
 
@@ -2073,17 +2073,17 @@ bool CodeGenVisitor::CanBeDefaultDelegate(const SQChar *key)
 
     // this can be optimized by keeping joined list/table of used keys
     SQTable *delegTbls[] = {
-        _table(_fs->_sharedstate->_table_default_delegate),
-        _table(_fs->_sharedstate->_array_default_delegate),
-        _table(_fs->_sharedstate->_string_default_delegate),
-        _table(_fs->_sharedstate->_number_default_delegate),
-        _table(_fs->_sharedstate->_generator_default_delegate),
-        _table(_fs->_sharedstate->_closure_default_delegate),
-        _table(_fs->_sharedstate->_thread_default_delegate),
-        _table(_fs->_sharedstate->_class_default_delegate),
-        _table(_fs->_sharedstate->_instance_default_delegate),
-        _table(_fs->_sharedstate->_weakref_default_delegate),
-        _table(_fs->_sharedstate->_userdata_default_delegate)
+        sq_get_table(_fs->_sharedstate->_table_default_delegate),
+        sq_get_table(_fs->_sharedstate->_array_default_delegate),
+        sq_get_table(_fs->_sharedstate->_string_default_delegate),
+        sq_get_table(_fs->_sharedstate->_number_default_delegate),
+        sq_get_table(_fs->_sharedstate->_generator_default_delegate),
+        sq_get_table(_fs->_sharedstate->_closure_default_delegate),
+        sq_get_table(_fs->_sharedstate->_thread_default_delegate),
+        sq_get_table(_fs->_sharedstate->_class_default_delegate),
+        sq_get_table(_fs->_sharedstate->_instance_default_delegate),
+        sq_get_table(_fs->_sharedstate->_weakref_default_delegate),
+        sq_get_table(_fs->_sharedstate->_userdata_default_delegate)
     };
     SQObjectPtr tmp;
     for (SQInteger i = 0; i < sizeof(delegTbls) / sizeof(delegTbls[0]); ++i) {
@@ -2097,20 +2097,20 @@ SQObjectPtr CodeGenVisitor::GetDefaultDelegate(SQInteger sq_type, const SQChar* 
     SQObjectPtr res;
     SQTable *delegateTable = nullptr;
     switch (sq_type) {
-        case OT_TABLE: delegateTable = _table(_fs->_sharedstate->_table_default_delegate); break;
-        case OT_ARRAY: delegateTable = _table(_fs->_sharedstate->_array_default_delegate); break;
-        case OT_STRING: delegateTable = _table(_fs->_sharedstate->_string_default_delegate); break;
+        case OT_TABLE: delegateTable = sq_get_table(_fs->_sharedstate->_table_default_delegate); break;
+        case OT_ARRAY: delegateTable = sq_get_table(_fs->_sharedstate->_array_default_delegate); break;
+        case OT_STRING: delegateTable = sq_get_table(_fs->_sharedstate->_string_default_delegate); break;
 
         case OT_INTEGER:
-        case OT_FLOAT: delegateTable = _table(_fs->_sharedstate->_number_default_delegate); break;
+        case OT_FLOAT: delegateTable = sq_get_table(_fs->_sharedstate->_number_default_delegate); break;
 
-        case OT_GENERATOR: delegateTable = _table(_fs->_sharedstate->_generator_default_delegate); break;
-        case OT_CLOSURE: delegateTable = _table(_fs->_sharedstate->_closure_default_delegate); break;
-        case OT_THREAD: delegateTable = _table(_fs->_sharedstate->_thread_default_delegate); break;
-        case OT_CLASS: delegateTable = _table(_fs->_sharedstate->_class_default_delegate); break;
-        case OT_INSTANCE: delegateTable = _table(_fs->_sharedstate->_instance_default_delegate); break;
-        case OT_WEAKREF: delegateTable = _table(_fs->_sharedstate->_weakref_default_delegate); break;
-        case OT_USERDATA: delegateTable = _table(_fs->_sharedstate->_userdata_default_delegate); break;
+        case OT_GENERATOR: delegateTable = sq_get_table(_fs->_sharedstate->_generator_default_delegate); break;
+        case OT_CLOSURE: delegateTable = sq_get_table(_fs->_sharedstate->_closure_default_delegate); break;
+        case OT_THREAD: delegateTable = sq_get_table(_fs->_sharedstate->_thread_default_delegate); break;
+        case OT_CLASS: delegateTable = sq_get_table(_fs->_sharedstate->_class_default_delegate); break;
+        case OT_INSTANCE: delegateTable = sq_get_table(_fs->_sharedstate->_instance_default_delegate); break;
+        case OT_WEAKREF: delegateTable = sq_get_table(_fs->_sharedstate->_weakref_default_delegate); break;
+        case OT_USERDATA: delegateTable = sq_get_table(_fs->_sharedstate->_userdata_default_delegate); break;
         case OT_USERPOINTER: // no default delegate for user pointers
         case OT_FUNCPROTO: // no default delegate for function prototypes
             return res;
@@ -2132,16 +2132,16 @@ bool CodeGenVisitor::CanBeDefaultTableDelegate(const SQChar *key)
       return false;
 
     SQObjectPtr tmp;
-    return _table(_fs->_sharedstate->_table_default_delegate)->GetStr(key, strlen(key), tmp);
+    return sq_get_table(_fs->_sharedstate->_table_default_delegate)->GetStr(key, strlen(key), tmp);
 }
 
 
 void CodeGenVisitor::selectConstant(SQInteger target, const SQObjectPtr &constant) {
     SQObjectType ctype = sq_type(constant);
     switch (ctype) {
-    case OT_INTEGER: EmitLoadConstInt(_integer(constant), target); break;
-    case OT_FLOAT: EmitLoadConstFloat(_float(constant), target); break;
-    case OT_BOOL: _fs->AddInstruction(_OP_LOADBOOL, target, _integer(constant)); break;
+    case OT_INTEGER: EmitLoadConstInt(sq_get_integer(constant), target); break;
+    case OT_FLOAT: EmitLoadConstFloat(sq_get_float(constant), target); break;
+    case OT_BOOL: _fs->AddInstruction(_OP_LOADBOOL, target, sq_get_integer(constant)); break;
     case OT_NULL: _fs->AddInstruction(_OP_LOADNULLS, target, 1); break;
     default: _fs->AddInstruction(_OP_LOAD, target, _fs->GetConstant(constant)); break;
     }
@@ -2159,7 +2159,7 @@ void CodeGenVisitor::visitGetFieldExpr(GetFieldExpr *expr) {
         if (IsConstant(id, constant)) {
             if (sq_type(constant) == OT_TABLE && (sq_objflags(constant) & SQOBJ_FLAG_IMMUTABLE) && !expr->isNullable()) {
                 SQObjectPtr next;
-                if (_table(constant)->GetStr(expr->fieldName(), strlen(expr->fieldName()), next)) {
+                if (sq_get_table(constant)->GetStr(expr->fieldName(), strlen(expr->fieldName()), next)) {
                     SQObjectType fieldType = sq_type(next);
                     bool needsCallContext = fieldType == OT_CLOSURE || fieldType == OT_NATIVECLOSURE
                         || fieldType == OT_GENERATOR || fieldType == OT_CLASS || fieldType == OT_INSTANCE;
@@ -2406,7 +2406,7 @@ bool CodeGenVisitor::IsLocalConstant(const SQObject &name, SQObjectPtr &e)
     SQObjectPtr val;
     for (SQInteger i = SQInteger(_scopedconsts.size()) - 1; i >= 0; --i) {
         SQObjectPtr &tbl = _scopedconsts[i];
-        if (!sq_isnull(tbl) && _table(tbl)->Get(SQObjectPtr(name), val)) {
+        if (!sq_isnull(tbl) && sq_get_table(tbl)->Get(SQObjectPtr(name), val)) {
             e = val;
             if (tbl._flags & SQOBJ_FLAG_IMMUTABLE)
                 e._flags |= SQOBJ_FLAG_IMMUTABLE;
@@ -2419,7 +2419,7 @@ bool CodeGenVisitor::IsLocalConstant(const SQObject &name, SQObjectPtr &e)
 bool CodeGenVisitor::IsGlobalConstant(const SQObject &name, SQObjectPtr &e)
 {
     SQObjectPtr val;
-    if (_table(_ss(_vm)->_consts)->Get(SQObjectPtr(name), val)) {
+    if (sq_get_table(_ss(_vm)->_consts)->Get(SQObjectPtr(name), val)) {
         e = val;
         return true;
     }
@@ -2440,13 +2440,13 @@ void CodeGenVisitor::visitId(Id *id) {
     char varFlags = 0;
 
     if (sq_isstring(_fs->_name)
-        && strcmp(_stringval(_fs->_name), id->name()) == 0
+        && strcmp(sq_get_stringval(_fs->_name), id->name()) == 0
         && _fs->GetLocalVariable(_fs->_name, varFlags) == -1) {
         _fs->AddInstruction(_OP_LOADCALLEE, _fs->PushTarget());
         return;
     }
 
-    if (_string(idObj) == _string(_fs->_name)) {
+    if (sq_get_string(idObj) == sq_get_string(_fs->_name)) {
         reportDiagnostic(id, DiagnosticsId::DI_CONFLICTS_WITH, "variable", id->name(), "function name");
     }
 
@@ -2469,13 +2469,13 @@ void CodeGenVisitor::visitId(Id *id) {
         SQObjectType ctype = sq_type(constval);
         switch (ctype) {
         case OT_INTEGER:
-            EmitLoadConstInt(_integer(constval), stkPos);
+            EmitLoadConstInt(sq_get_integer(constval), stkPos);
             break;
         case OT_FLOAT:
-            EmitLoadConstFloat(_float(constval), stkPos);
+            EmitLoadConstFloat(sq_get_float(constval), stkPos);
             break;
         case OT_BOOL:
-            _fs->AddInstruction(_OP_LOADBOOL, stkPos, _integer(constval));
+            _fs->AddInstruction(_OP_LOADBOOL, stkPos, sq_get_integer(constval));
             break;
         case OT_NULL:
             _fs->AddInstruction(_OP_LOADNULLS, stkPos, 1);

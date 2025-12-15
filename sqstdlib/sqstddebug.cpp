@@ -119,20 +119,20 @@ static SQInteger debug_doc(HSQUIRRELVM v)
     switch(sq_type(subject))
     {
         case OT_CLOSURE:
-            key._unVal.pUserPointer = (void *)_closure(subject)->_function;
+            key._unVal.pUserPointer = (void *)sq_get_closure(subject)->_function;
             break;
         case OT_NATIVECLOSURE:
-            key._unVal.pUserPointer = (void *)_nativeclosure(subject)->_function;
+            key._unVal.pUserPointer = (void *)sq_get_nativeclosure(subject)->_function;
             break;
         case OT_INSTANCE:
-            key._unVal.pUserPointer = (void *)_instance(subject)->_class;
+            key._unVal.pUserPointer = (void *)sq_get_instance(subject)->_class;
             break;
         default:
             key._unVal.pUserPointer = subject._unVal.pUserPointer;
             break;
     }
 
-    if (!_table(_ss(v)->doc_objects)->Get(key, value))
+    if (!sq_get_table(_ss(v)->doc_objects)->Get(key, value))
     {
         sq_pushnull(v);
         return 1;

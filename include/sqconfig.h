@@ -1,10 +1,14 @@
+#pragma once
+
 #ifndef _SQ64
 #define _SQ64 // always use 64 bit Integers (even on 32 bit platform)
 #endif
 
 #define __STDC_FORMAT_MACROS // Linux/Adnroid won't define PRId* macroses without this
-#include <stdint.h>
-#include <inttypes.h>
+#include <cinttypes>
+#include <cstddef>
+#include <limits>
+#include <bit>
 
 #ifdef _SQ64
     typedef int64_t  SQInteger;
@@ -38,13 +42,33 @@ typedef unsigned int SQUnsignedInteger32;
     #define SQ_OBJECT_RAWINIT()
 #endif
 
-#ifndef SQ_ALIGNMENT // SQ_ALIGNMENT shall be less than or equal to SQ_MALLOC alignments, and its value shall be power of 2.
-    #if defined(SQUSEDOUBLE) || defined(_SQ64)
-        #define SQ_ALIGNMENT 8
-    #else
-        #define SQ_ALIGNMENT 4
-    #endif
+// -----------------------------------------------------------------------------
+// Alignment Configuration
+// -----------------------------------------------------------------------------
+
+// clang-format off
+/* Shio: We calculate the alignment value into a constexpr variable.
+   We preserve the preprocessor logic to check SQUSEDOUBLE/_SQ64,
+   but we expose the result as a typed constant.
+*/
+#ifndef SQ_ALIGNMENT // SQ_ALIGNMENT shall be less than or equal to
+                     // SQ_MALLOC alignments, and its value shall be power
+                     // of 2.
+#if defined(SQUSEDOUBLE) || defined(_SQ64)
+    constexpr inline std::size_t SQ_ALIGNMENT_CONST = 8;
+#else
+    constexpr inline std::size_t SQ_ALIGNMENT_CONST = 4;
 #endif
+#else
+    constexpr inline std::size_t SQ_ALIGNMENT_CONST = SQ_ALIGNMENT;
+#endif
+
+// Ensure alignment is valid (Power of 2)
+static_assert(
+    std::has_single_bit(SQ_ALIGNMENT_CONST),
+    "SQ_ALIGNMENT must be a power of 2"
+);
+// clang-format on
 
 typedef void* SQUserPointer;
 typedef SQUnsignedInteger SQBool;
@@ -68,7 +92,12 @@ typedef char SQChar;
 #else
 #define scstrtol    strtol
 #endif
-#define SQ_MAX_CHAR 0xFF
+
+// -----------------------------------------------------------------------------
+// Character Limits
+// -----------------------------------------------------------------------------
+
+constexpr inline std::int32_t SQ_MAX_CHAR = 0xFF;
 
 #ifdef _SQ64
     #define _PRINT_INT_PREC _SC("ll")
@@ -76,12 +105,37 @@ typedef char SQChar;
 #else
     #define _PRINT_INT_FMT _SC("%d")
 #endif
-#define SQ_CHECK_THREAD_LEVEL_NONE 0
-#define SQ_CHECK_THREAD_LEVEL_FAST 1
-#define SQ_CHECK_THREAD_LEVEL_DEEP 2
 
+// -----------------------------------------------------------------------------
+// Thread Check Levels
+// -----------------------------------------------------------------------------
+
+enum SQCheckThreadLevels : std::int32_t
+{
+    SQ_CHECK_THREAD_LEVEL_NONE = 0,
+    SQ_CHECK_THREAD_LEVEL_FAST = 1,
+    SQ_CHECK_THREAD_LEVEL_DEEP = 2,
+};
+
+// Determine active thread check level
 #ifndef SQ_CHECK_THREAD
-#define SQ_CHECK_THREAD SQ_CHECK_THREAD_LEVEL_NONE
+constexpr inline SQCheckThreadLevels SQ_CHECK_THREAD_CURRENT =
+    SQ_CHECK_THREAD_LEVEL_NONE;
+#else
+// Assuming SQ_CHECK_THREAD is defined as an integer literal in the build system
+constexpr inline SQCheckThreadLevels SQ_CHECK_THREAD_CURRENT =
+    static_cast<SQCheckThreadLevels>(SQ_CHECK_THREAD);
 #endif
 
-#define MIN_SQ_INTEGER SQInteger(1ULL << (sizeof(SQInteger) * 8 - 1))
+// -----------------------------------------------------------------------------
+// Integer Limits
+// -----------------------------------------------------------------------------
+
+/* Shio: The legacy macro performed a bitwise shift to calculate the minimum
+   signed integer (setting the sign bit). In C++26, std::numeric_limits is the
+   standard and readable way to achieve this.
+
+   Legacy: SQInteger(1ULL << (sizeof(SQInteger) * 8 - 1))
+*/
+constexpr inline SQInteger MIN_SQ_INTEGER =
+    std::numeric_limits<SQInteger>::min();

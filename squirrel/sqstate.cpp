@@ -90,7 +90,7 @@ SQTable *CreateDefaultDelegate(SQSharedState *ss,const SQRegFunction *funcz)
             SQObjectPtr docKey;
             docKey._type = OT_USERPOINTER;
             docKey._unVal.pUserPointer = (void *)nc->_function;
-            _table(ss->doc_objects)->NewSlot(docKey, docValue);
+            sq_get_table(ss->doc_objects)->NewSlot(docKey, docValue);
         }
 
         t->NewSlot(nc->_name, SQObjectPtr(nc));
@@ -140,7 +140,7 @@ void SQSharedState::Init()
     //meta methods
 #define MM_IMPL(mm, name) {  \
         _metamethodnames->push_back(SQObjectPtr(SQString::Create(this,name)));  \
-        _table(_metamethodsmap)->NewSlot(_metamethodnames->back(), SQObjectPtr((SQInteger)(mm))); \
+        sq_get_table(_metamethodsmap)->NewSlot(_metamethodnames->back(), SQObjectPtr((SQInteger)(mm))); \
     }
 
     METAMETHODS_LIST
@@ -168,10 +168,10 @@ SQSharedState::~SQSharedState()
 {
     if(_releasehook) { _releasehook(_foreignptr,0); _releasehook = NULL; }
     _constructorstr.Null();
-    _table(_registry)->Finalize();
-    _table(_consts)->Finalize();
-    _table(_metamethodsmap)->Finalize();
-    _table(doc_objects)->Finalize();
+    sq_get_table(_registry)->Finalize();
+    sq_get_table(_consts)->Finalize();
+    sq_get_table(_metamethodsmap)->Finalize();
+    sq_get_table(doc_objects)->Finalize();
     _registry.Null();
     _consts.Null();
     _metamethodsmap.Null();
@@ -180,7 +180,7 @@ SQSharedState::~SQSharedState()
         _systemstrings->back().Null();
         _systemstrings->pop_back();
     }
-    _thread(_root_vm)->Finalize();
+    sq_get_thread(_root_vm)->Finalize();
     _root_vm.Null();
     _table_default_delegate.Null();
     _array_default_delegate.Null();
@@ -228,8 +228,8 @@ SQInteger SQSharedState::GetMetaMethodIdxByName(const SQObjectPtr &name)
     if(sq_type(name) != OT_STRING)
         return -1;
     SQObjectPtr ret;
-    if(_table(_metamethodsmap)->Get(name,ret)) {
-        return _integer(ret);
+    if(sq_get_table(_metamethodsmap)->Get(name,ret)) {
+        return sq_get_integer(ret);
     }
     return -1;
 }
@@ -239,24 +239,24 @@ SQInteger SQSharedState::GetMetaMethodIdxByName(const SQObjectPtr &name)
 void SQSharedState::MarkObject(SQObjectPtr &o,SQCollectable **chain)
 {
     switch(sq_type(o)){
-    case OT_TABLE:_table(o)->Mark(chain);break;
-    case OT_ARRAY:_array(o)->Mark(chain);break;
-    case OT_USERDATA:_userdata(o)->Mark(chain);break;
-    case OT_CLOSURE:_closure(o)->Mark(chain);break;
-    case OT_NATIVECLOSURE:_nativeclosure(o)->Mark(chain);break;
-    case OT_GENERATOR:_generator(o)->Mark(chain);break;
-    case OT_THREAD:_thread(o)->Mark(chain);break;
-    case OT_CLASS:_class(o)->Mark(chain);break;
-    case OT_INSTANCE:_instance(o)->Mark(chain);break;
-    case OT_OUTER:_outer(o)->Mark(chain);break;
-    case OT_FUNCPROTO:_funcproto(o)->Mark(chain);break;
+    case OT_TABLE:sq_get_table(o)->Mark(chain);break;
+    case OT_ARRAY:sq_get_array(o)->Mark(chain);break;
+    case OT_USERDATA:sq_get_userdata(o)->Mark(chain);break;
+    case OT_CLOSURE:sq_get_closure(o)->Mark(chain);break;
+    case OT_NATIVECLOSURE:sq_get_nativeclosure(o)->Mark(chain);break;
+    case OT_GENERATOR:sq_get_generator(o)->Mark(chain);break;
+    case OT_THREAD:sq_get_thread(o)->Mark(chain);break;
+    case OT_CLASS:sq_get_class(o)->Mark(chain);break;
+    case OT_INSTANCE:sq_get_instance(o)->Mark(chain);break;
+    case OT_OUTER:sq_get_outer(o)->Mark(chain);break;
+    case OT_FUNCPROTO:sq_get_funcproto(o)->Mark(chain);break;
     default: break; //shutup compiler
     }
 }
 
 void SQSharedState::RunMark(SQVM* SQ_UNUSED_ARG(vm),SQCollectable **tchain)
 {
-    SQVM *vms = _thread(_root_vm);
+    SQVM *vms = sq_get_thread(_root_vm);
 
     vms->Mark(tchain);
 
@@ -524,7 +524,7 @@ RefTable::RefNode *RefTable::Get(SQObject &obj,SQHash &mainpos,RefNode **prev,bo
     mainpos = ::HashObj(obj)&(_numofslots-1);
     *prev = NULL;
     for (ref = _buckets[mainpos]; ref; ) {
-        if(_rawval(ref->obj) == _rawval(obj) && sq_type(ref->obj) == sq_type(obj))
+        if(sq_get_rawval(ref->obj) == sq_get_rawval(obj) && sq_type(ref->obj) == sq_type(obj))
             break;
         *prev = ref;
         ref = ref->next;

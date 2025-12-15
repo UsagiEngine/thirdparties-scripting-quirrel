@@ -14,7 +14,7 @@
 
 const SQChar *IdType2Name(SQObjectType type)
 {
-    switch(_RAW_TYPE(type))
+    switch(sq_get_raw_type(type))
     {
     case OT_NULL: // fallthrough
     case _RT_NULL:return _SC("null");
@@ -134,7 +134,7 @@ bool SQGenerator::Yield(SQVM *v,SQInteger target)
     _stack.resize(size);
     SQObject _this = v->_stack[v->_stackbase];
     _stack._vals[0] = sq_is_ref_counted(sq_type(_this))
-        ? SQObjectPtr(_refcounted(_this)->GetWeakRef(_ss(v)->_alloc_ctx, sq_type(_this), _this._flags))
+        ? SQObjectPtr(sq_get_refcounted(_this)->GetWeakRef(_ss(v)->_alloc_ctx, sq_type(_this), _this._flags))
         : _this;
 
     for(SQInteger n =1; n<target; n++) {
@@ -188,7 +188,7 @@ bool SQGenerator::Resume(SQVM *v,SQObjectPtr &dest)
         et._stacksize += newbase;
     }
     SQObject _this = _stack._vals[0];
-    v->_stack[v->_stackbase] = sq_type(_this) == OT_WEAKREF ? _weakref(_this)->_obj : _this;
+    v->_stack[v->_stackbase] = sq_type(_this) == OT_WEAKREF ? sq_get_weakref(_this)->_obj : _this;
 
     for(SQInteger n = 1; n<size; n++) {
         v->_stack[v->_stackbase+n] = _stack._vals[n];
@@ -231,7 +231,7 @@ const SQChar* SQFunctionProto::GetLocal(SQVM *vm,SQUnsignedInteger stackbase,SQU
             {
                 if(nseq==0){
                     vm->Push(vm->_stack[stackbase+_localvarinfos[i]._pos]);
-                    res=_stringval(_localvarinfos[i]._name);
+                    res=sq_get_stringval(_localvarinfos[i]._name);
                     break;
                 }
                 nseq--;
@@ -371,14 +371,14 @@ static bool WriteObject(HSQUIRRELVM v,SQUserPointer up,SQWRITEFUNC write,SQObjec
     _CHECK_IO(SafeWrite(v,write,up,&_type,sizeof(_type)));
     switch(sq_type(o)){
     case OT_STRING:
-        _CHECK_IO(SafeWrite(v,write,up,&_string(o)->_len,sizeof(SQInteger)));
-        _CHECK_IO(SafeWrite(v,write,up,_stringval(o),_string(o)->_len));
+        _CHECK_IO(SafeWrite(v,write,up,&sq_get_string(o)->_len,sizeof(SQInteger)));
+        _CHECK_IO(SafeWrite(v,write,up,sq_get_stringval(o),sq_get_string(o)->_len));
         break;
     case OT_BOOL:
     case OT_INTEGER:
-        _CHECK_IO(SafeWrite(v,write,up,&_integer(o),sizeof(SQInteger)));break;
+        _CHECK_IO(SafeWrite(v,write,up,&sq_get_integer(o),sizeof(SQInteger)));break;
     case OT_FLOAT:
-        _CHECK_IO(SafeWrite(v,write,up,&_float(o),sizeof(SQFloat)));break;
+        _CHECK_IO(SafeWrite(v,write,up,&sq_get_float(o),sizeof(SQFloat)));break;
     case OT_NULL:
         break;
     default:
@@ -443,7 +443,7 @@ bool SQClosure::Load(SQVM *v,SQUserPointer up,SQREADFUNC read,SQObjectPtr &ret)
     SQObjectPtr func;
     _CHECK_IO(SQFunctionProto::Load(v,up,read,func));
     _CHECK_IO(CheckTag(v,read,up,SQ_CLOSURESTREAM_TAIL));
-    ret = SQClosure::Create(_ss(v),_funcproto(func));
+    ret = SQClosure::Create(_ss(v),sq_get_funcproto(func));
     return true;
 }
 
@@ -524,7 +524,7 @@ bool SQFunctionProto::Save(SQVM *v,SQUserPointer up,SQWRITEFUNC write)
 
     _CHECK_IO(WriteTag(v,write,up,SQ_CLOSURESTREAM_PART));
     for(i=0;i<nfunctions;i++){
-        _CHECK_IO(_funcproto(_functions[i])->Save(v,up,write));
+        _CHECK_IO(sq_get_funcproto(_functions[i])->Save(v,up,write));
     }
     _CHECK_IO(SafeWrite(v,write,up,&_stacksize,sizeof(_stacksize)));
     _CHECK_IO(SafeWrite(v,write,up,&_bgenerator,sizeof(_bgenerator)));
@@ -614,7 +614,7 @@ bool SQFunctionProto::Load(SQVM *v,SQUserPointer up,SQREADFUNC read,SQObjectPtr 
 
     _CHECK_IO(CheckTag(v,read,up,SQ_CLOSURESTREAM_PART));
     for(i = 0; i < nfunctions; i++){
-        _CHECK_IO(_funcproto(o)->Load(v, up, read, o));
+        _CHECK_IO(sq_get_funcproto(o)->Load(v, up, read, o));
         f->_functions[i] = o;
     }
     _CHECK_IO(SafeRead(v,read,up, &f->_stacksize, sizeof(f->_stacksize)));

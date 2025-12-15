@@ -27,12 +27,17 @@ THE SOFTWARE.
 #include _SQ_CONFIG_INCLUDE
 #endif
 
+// Put this outside extern "C"
+#include "sqconfig.h"
+
 #ifdef __cplusplus
 extern "C" {
 #else
 #include <stdbool.h>
 #endif
 #include <string.h> // memset
+
+#include <cstdint>
 
 #ifndef SQUIRREL_API
 #define SQUIRREL_API extern
@@ -44,8 +49,8 @@ extern "C" {
 #endif
 #endif
 
-constexpr static inline bool SQTrue = true;
-constexpr static inline bool SQFalse = false;
+constexpr inline bool SQTrue  = true;
+constexpr inline bool SQFalse = false;
 
 struct SQVM;
 struct SQTable;
@@ -72,7 +77,6 @@ namespace SQCompilation
   struct SqASTData;
 }
 
-#include "sqconfig.h"
 #include <stdio.h>
 
 #define SQUIRREL_VERSION_NUMBER_MAJOR 4
@@ -89,44 +93,50 @@ namespace SQCompilation
 
 #define SQUIRREL_COPYRIGHT  "Copyright (C) 2003-2016 Alberto Demichelis; 2016-2025 Gaijin Games KFT"
 
+// -----------------------------------------------------------------------------
+// Core Constants
+// -----------------------------------------------------------------------------
 
-#define SQ_VMSTATE_IDLE         0
-#define SQ_VMSTATE_RUNNING      1
-#define SQ_VMSTATE_SUSPENDED    2
+// VM States
+enum SQVMStates
+{
+    SQ_VMSTATE_IDLE      = 0,
+    SQ_VMSTATE_RUNNING   = 1,
+    SQ_VMSTATE_SUSPENDED = 2,
+};
 
-#define SQUIRREL_EOB 0
-#define SQ_BYTECODE_STREAM_TAG  0xFAFA
+// Stream & Bytecode
+constexpr inline std::int8_t   SQUIRREL_EOB           = 0;
+constexpr inline std::uint16_t SQ_BYTECODE_STREAM_TAG = 0xFAFA;
+constexpr inline SQInteger     SQ_MATCHTYPEMASKSTRING = -99'999;
 
-#define SQOBJECT_REF_COUNTED    0x08000000
-#define SQOBJECT_NUMERIC        0x04000000
-#define SQOBJECT_DELEGABLE      0x02000000
+// Object Flags
+constexpr inline std::uint32_t SQOBJECT_REF_COUNTED = 0x0800'0000;
+constexpr inline std::uint32_t SQOBJECT_NUMERIC     = 0x0400'0000;
+constexpr inline std::uint32_t SQOBJECT_DELEGABLE   = 0x0200'0000;
+constexpr inline std::uint8_t  SQOBJ_FLAG_IMMUTABLE = 0x01;
 
-#define SQOBJ_FLAG_IMMUTABLE    0x01
-
-#define SQ_MATCHTYPEMASKSTRING (-99999)
-
-#define _RT_MASK 0x00FFFFFF
-#define _RAW_TYPE(type) ((type)&_RT_MASK)
-
-#define _RT_NULL            0x00000001
-#define _RT_INTEGER         0x00000002
-#define _RT_FLOAT           0x00000004
-#define _RT_BOOL            0x00000008
-#define _RT_STRING          0x00000010
-#define _RT_TABLE           0x00000020
-#define _RT_ARRAY           0x00000040
-#define _RT_USERDATA        0x00000080
-#define _RT_CLOSURE         0x00000100
-#define _RT_NATIVECLOSURE   0x00000200
-#define _RT_GENERATOR       0x00000400
-#define _RT_USERPOINTER     0x00000800
-#define _RT_THREAD          0x00001000
-#define _RT_FUNCPROTO       0x00002000
-#define _RT_CLASS           0x00004000
-#define _RT_INSTANCE        0x00008000
-#define _RT_WEAKREF         0x00010000
-#define _RT_OUTER           0x00020000
-#define _RT_FREE_TABLE_SLOT 0x80000000
+// Raw Types (RT_*)
+constexpr inline std::uint32_t _RT_MASK            = 0x00FF'FFFF;
+constexpr inline std::uint32_t _RT_NULL            = 0x0000'0001;
+constexpr inline std::uint32_t _RT_INTEGER         = 0x0000'0002;
+constexpr inline std::uint32_t _RT_FLOAT           = 0x0000'0004;
+constexpr inline std::uint32_t _RT_BOOL            = 0x0000'0008;
+constexpr inline std::uint32_t _RT_STRING          = 0x0000'0010;
+constexpr inline std::uint32_t _RT_TABLE           = 0x0000'0020;
+constexpr inline std::uint32_t _RT_ARRAY           = 0x0000'0040;
+constexpr inline std::uint32_t _RT_USERDATA        = 0x0000'0080;
+constexpr inline std::uint32_t _RT_CLOSURE         = 0x0000'0100;
+constexpr inline std::uint32_t _RT_NATIVECLOSURE   = 0x0000'0200;
+constexpr inline std::uint32_t _RT_GENERATOR       = 0x0000'0400;
+constexpr inline std::uint32_t _RT_USERPOINTER     = 0x0000'0800;
+constexpr inline std::uint32_t _RT_THREAD          = 0x0000'1000;
+constexpr inline std::uint32_t _RT_FUNCPROTO       = 0x0000'2000;
+constexpr inline std::uint32_t _RT_CLASS           = 0x0000'4000;
+constexpr inline std::uint32_t _RT_INSTANCE        = 0x0000'8000;
+constexpr inline std::uint32_t _RT_WEAKREF         = 0x0001'0000;
+constexpr inline std::uint32_t _RT_OUTER           = 0x0002'0000;
+constexpr inline std::uint32_t _RT_FREE_TABLE_SLOT = 0x8000'0000;
 
 typedef enum tagSQObjectType{
     OT_NULL =           0, // Note: checking typemask for _RT_NULL is non-obvious and is implemented in a special manner
@@ -149,6 +159,11 @@ typedef enum tagSQObjectType{
     OT_OUTER =          (_RT_OUTER|SQOBJECT_REF_COUNTED), //internal usage only
     OT_FREE_TABLE_SLOT = _RT_FREE_TABLE_SLOT //internal usage only
 }SQObjectType;
+
+constexpr std::uint32_t sq_get_raw_type(const SQObjectType type)
+{
+    return type & _RT_MASK;
+}
 
 typedef uint8_t SQObjectFlags;
 
@@ -513,10 +528,11 @@ SQUIRREL_API void sq_enablesyntaxwarnings(bool on);
 SQUIRREL_API void sq_checkglobalnames(HSQUIRRELVM v);
 SQUIRREL_API void sq_mergeglobalnames(const HSQOBJECT *bindings);
 
-/* Type & Flag Utils */
 #ifdef __cplusplus
-}
+} /*extern "C"*/
 #endif
+
+/* Type & Flag Utils */
 constexpr auto sq_isnumeric(auto &&o) { return o._type & SQOBJECT_NUMERIC; }
 constexpr auto sq_istable(auto &&o) { return o._type == OT_TABLE; }
 constexpr auto sq_isarray(auto &&o) { return o._type == OT_ARRAY; }
@@ -537,12 +553,9 @@ constexpr auto sq_isbool(auto &&o) { return o._type == OT_BOOL; }
 constexpr auto sq_isweakref(auto &&o) { return o._type == OT_WEAKREF; }
 constexpr auto sq_type(auto &&o) { return o._type; }
 constexpr auto sq_objflags(auto &&o) { return o._flags; }
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-constexpr static inline SQRESULT SQ_OK = 0;
-constexpr static inline SQRESULT SQ_ERROR = -1;
+constexpr inline SQRESULT SQ_OK    = 0;
+constexpr inline SQRESULT SQ_ERROR = -1;
 
 constexpr bool SQ_FAILED(const SQRESULT res) { return res < 0; }
 constexpr bool SQ_SUCCEEDED(const SQRESULT res) { return res >= 0; }
@@ -551,10 +564,6 @@ constexpr bool SQ_SUCCEEDED(const SQRESULT res) { return res >= 0; }
 # define SQ_UNUSED_ARG(x) x __attribute__((__unused__))
 #else
 # define SQ_UNUSED_ARG(x)
-#endif
-
-#ifdef __cplusplus
-} /*extern "C"*/
 #endif
 
 /*

@@ -104,7 +104,7 @@ void ConstGenVisitor::visitId(Id *id)
     } else {
         _ctx.reportDiagnostic(DiagnosticsId::DI_ID_IS_NOT_CONST,
             id->lineStart(), id->columnStart(), id->columnEnd() - id->columnStart(),
-            _stringval(idObj));
+            sq_get_stringval(idObj));
     }
 
     _call_target.Null();
@@ -185,7 +185,7 @@ void ConstGenVisitor::visitGetFieldExpr(GetFieldExpr *expr)
         sq_settop(_vm, prevTop);
         _ctx.reportDiagnostic(DiagnosticsId::DI_CONSTANT_FIELD_NOT_FOUND,
             expr->lineStart(), expr->columnStart(), expr->columnEnd() - expr->columnStart(),
-            _stringval(slotName));
+            sq_get_stringval(slotName));
     }
 
     sq_settop(_vm, prevTop);
@@ -231,7 +231,7 @@ void ConstGenVisitor::visitGetSlotExpr(GetSlotExpr *expr)
         Expr *errNode = expr->key();
         _ctx.reportDiagnostic(DiagnosticsId::DI_CONSTANT_SLOT_NOT_FOUND,
             errNode->lineStart(), errNode->columnStart(), errNode->columnEnd() - errNode->columnStart(),
-            IdType2Name(sq_type(key)), _stringval(keyAsString));
+            IdType2Name(sq_type(key)), sq_get_stringval(keyAsString));
     }
     sq_settop(_vm, prevTop);
 }
@@ -257,7 +257,7 @@ void ConstGenVisitor::visitUnExpr(UnExpr *unary)
         if(sq_type(_result) != OT_INTEGER)
             throwGeneralError(unary->argument(), "attempt to perform a bitwise op on a non-integer");
 
-        _result = SQObjectPtr(~(_integer(_result)));
+        _result = SQObjectPtr(~(sq_get_integer(_result)));
         break;
     case TO_TYPEOF:
         unary->argument()->visit(this);
@@ -379,7 +379,7 @@ void ConstGenVisitor::visitBinExpr(BinExpr *expr)
             if (sq_type(rhs) != OT_CLASS)
                 throwGeneralError(expr->rhs(), "checking instance with non-class");
             if (sq_type(lhs) == OT_INSTANCE)
-                _result = SQObjectPtr(_instance(lhs)->InstanceOf(_class(rhs)));
+                _result = SQObjectPtr(sq_get_instance(lhs)->InstanceOf(sq_get_class(rhs)));
             else
                 _result = SQObjectPtr(false);
             break;
@@ -393,7 +393,7 @@ void ConstGenVisitor::visitBinExpr(BinExpr *expr)
     if (!ok) {
         SQObjectPtr err = _vm->_lasterror;
         sq_reseterror(_vm);
-        throwGeneralError(expr, sq_isstring(err) ? _stringval(err) : "internal error in binary operation");
+        throwGeneralError(expr, sq_isstring(err) ? sq_get_stringval(err) : "internal error in binary operation");
     }
 }
 

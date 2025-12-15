@@ -52,11 +52,11 @@ static bool fastEqualByValue(const SQObjectPtr &a, const SQObjectPtr &b, int dep
     {
       if (!sq_isnumeric(a) || !sq_isnumeric(b))
           return false;
-      return tofloat(a) == tofloat(b);
+      return sq_to_float(a) == sq_to_float(b);
     }
 
     // same type
-    if (_rawval(a) == _rawval(b))
+    if (sq_get_rawval(a) == sq_get_rawval(b))
         return true;
 
     if (depth <= 0)
@@ -64,8 +64,8 @@ static bool fastEqualByValue(const SQObjectPtr &a, const SQObjectPtr &b, int dep
 
     if (sq_isarray(a))
     {
-        auto aa = _array(a);
-        auto ab = _array(b);
+        auto aa = sq_get_array(a);
+        auto ab = sq_get_array(b);
         if (aa->Size() != ab->Size())
             return false;
 
@@ -80,8 +80,8 @@ static bool fastEqualByValue(const SQObjectPtr &a, const SQObjectPtr &b, int dep
     }
     else if (sq_istable(a))
     {
-        auto ta = _table(a);
-        auto tb = _table(b);
+        auto ta = sq_get_table(a);
+        auto tb = sq_get_table(b);
         if (ta->CountUsed() != tb->CountUsed())
             return false;
 
@@ -94,7 +94,7 @@ static bool fastEqualByValue(const SQObjectPtr &a, const SQObjectPtr &b, int dep
             SQObjectPtr key, va, vb;
             iter._unVal.nInteger = ta->Next(true, iter, key, va);
             iter._type = OT_INTEGER;
-            if (_integer(iter) < 0)
+            if (sq_get_integer(iter) < 0)
                 break;
 
             if (!tb->Get(key, vb))
@@ -124,7 +124,7 @@ SQRESULT sq_direct_getuserdata(const HSQOBJECT *obj, SQUserPointer *p, SQUserPoi
     if (obj->_type != OT_USERDATA)
       return SQ_ERROR;
 
-    (*p) = _userdataval(*obj);
-    if(typetag) *typetag = _userdata(*obj)->_typetag;
+    (*p) = sq_get_userdataval(*obj);
+    if(typetag) *typetag = sq_get_userdata(*obj)->_typetag;
     return SQ_OK;
 }

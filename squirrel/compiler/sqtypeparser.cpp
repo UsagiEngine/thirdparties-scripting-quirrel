@@ -125,16 +125,16 @@ static bool parse_type_mask(SQVM* vm, const SQChar*& s, SQUnsignedInteger32& mas
         const SQChar* suggestion = nullptr;
         SQUnsignedInteger32 currentTypeMask = 0;
 
-        bool found = sq_type_string_to_mask(_stringval(typeName), currentTypeMask, suggestion);
+        bool found = sq_type_string_to_mask(sq_get_stringval(typeName), currentTypeMask, suggestion);
 
         if (!found)
         {
             error_pos = p - s;
             SQChar buf[256];
             if (suggestion)
-                scsprintf(buf, 256, _SC("Invalid type name '%s', did you mean '%s'?"), _stringval(typeName), suggestion);
+                scsprintf(buf, 256, _SC("Invalid type name '%s', did you mean '%s'?"), sq_get_stringval(typeName), suggestion);
             else
-                scsprintf(buf, 256, _SC("Invalid type name '%s'"), _stringval(typeName));
+                scsprintf(buf, 256, _SC("Invalid type name '%s'"), sq_get_stringval(typeName));
             error_string = SQString::Create(_ss(vm), buf);
             return false;
         }
@@ -237,7 +237,7 @@ bool sq_parse_function_type_string(SQVM* vm, const SQChar* s, SQFunctionType& re
                 return false;
             }
 
-            const SQChar* typeStr = _stringval(identifier1);
+            const SQChar* typeStr = sq_get_stringval(identifier1);
             const SQChar* typeStrPtr = typeStr;
             SQUnsignedInteger32 objectTypeMask;
             SQInteger error_pos_local;
@@ -718,7 +718,7 @@ SQObjectPtr sq_stringify_function_type(SQVM* vm, const SQFunctionType& ft)
         append(_SC("."));
     }
 
-    append(_stringval(ft.functionName));
+    append(sq_get_stringval(ft.functionName));
 
     append(_SC("("));
     for (SQInteger i = 0; i < ft.argNames.size(); i++)
@@ -736,7 +736,7 @@ SQObjectPtr sq_stringify_function_type(SQVM* vm, const SQFunctionType& ft)
             append(_SC(", "));
         }
 
-        append(_stringval(ft.argNames[i]));
+        append(sq_get_stringval(ft.argNames[i]));
 
         if (ft.argTypeMask[i] != ~0u)
         {
@@ -748,7 +748,7 @@ SQObjectPtr sq_stringify_function_type(SQVM* vm, const SQFunctionType& ft)
         {
             append(_SC(" = "));
             if (sq_isstring(ft.defaultValues[i]))
-                append(_stringval(ft.defaultValues[i]));
+                append(sq_get_stringval(ft.defaultValues[i]));
             else
                 append(_SC("<default value>"));
         }

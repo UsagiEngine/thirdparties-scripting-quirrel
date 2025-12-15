@@ -149,7 +149,7 @@ SQTable *SQTable::Clone()
 SQTable::_HashNode *SQTable::_Get(const SQObjectPtr &key) const
 {
     if (sq_type(key) == OT_STRING)
-        return _GetStr(_rawval(key), _string(key)->_hash & _numofnodes_minus_one);
+        return _GetStr(sq_get_rawval(key), sq_get_string(key)->_hash & _numofnodes_minus_one);
     else
         return _Get(key, HashObj(key) & _numofnodes_minus_one);
 }
@@ -167,11 +167,11 @@ bool SQTable::Get(const SQObjectPtr &key,SQObjectPtr &val) const
 bool SQTable::GetStrToInt(const SQObjectPtr &key,uint32_t &val) const//for class members
 {
     assert(sq_type(key) == OT_STRING);
-    const _HashNode *n = _GetStr(_rawval(key), _string(key)->_hash & _numofnodes_minus_one);
+    const _HashNode *n = _GetStr(sq_get_rawval(key), sq_get_string(key)->_hash & _numofnodes_minus_one);
     if (!n)
       return false;
     assert(sq_type(n->val) == OT_INTEGER);
-    val = _integer(n->val);
+    val = sq_get_integer(n->val);
     return true;
 }
 
@@ -249,7 +249,7 @@ bool SQTable::NewSlot(const SQObjectPtr &__restrict key,const SQObjectPtr &__res
                     // Use SQString address as identifier, strings are unique, immutable and strored in a table.
                     // That means that all script strings share the same reference to SQString.
                     // 32 provides more than realistic address range.
-                    uint32_t strIdBits = uint32_t( (uintptr_t(_string(key)) >> 3) & 0xFFFFFFFF );
+                    uint32_t strIdBits = uint32_t( (uintptr_t(sq_get_string(key)) >> 3) & 0xFFFFFFFF );
                     _classTypeId = class_type_hash_update_4(_classTypeId, strIdBits);
                 }
             } else {
