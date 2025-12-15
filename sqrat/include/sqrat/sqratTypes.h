@@ -174,6 +174,9 @@ struct Var<Func, SQRAT_STD::enable_if_t<is_callable_v<Func>>>
 
 /// Used to get and push class instances to and from the stack as references
 template<class T>
+    // Prevent treating fundamental types as classes. Trying to get an instance
+    // from a reference to one would crash the vm.
+    requires (!std::is_fundamental_v<std::remove_cv_t<T>>)
 struct Var<T&> {
 
     using ClassT = ClassType<remove_const_t<T>>;
@@ -205,6 +208,9 @@ struct Var<T&> {
 
 /// Used to get and push class instances to and from the stack as pointers
 template<class T>
+    // Similar to Var<T&>, don't treat pointers to fundamental types as class
+    // instances.
+    requires (!std::is_fundamental_v<std::remove_cv_t<T>>)
 struct Var<T*, SQRAT_STD::enable_if_t<!is_callable_v<T*>>> {
 
     using ClassT = ClassType<remove_const_t<T>>;
