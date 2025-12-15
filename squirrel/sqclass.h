@@ -3,6 +3,8 @@
 #define _SQCLASS_H_
 
 #include "sqobject.h"
+#include "sqstate.h"
+#include "sqtable.h"
 
 struct SQInstance;
 

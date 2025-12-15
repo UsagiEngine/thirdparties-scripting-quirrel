@@ -1,7 +1,8 @@
 #pragma once
 
 #include <memory.h> // memset
-#include <squirrel.h>
+
+#include "squirrel.h"
 #include "squtils.h"
 
 #define VAR_TRACE_SAVE_VALUES 0

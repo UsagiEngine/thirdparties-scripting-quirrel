@@ -4,6 +4,7 @@
 
 #include "opcodes.h"
 #include "sqobject.h"
+#include "sqstate.h"
 
 enum SQOuterType {
     otLOCAL = 0,
