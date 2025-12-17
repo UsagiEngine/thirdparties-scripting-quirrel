@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "sqratObject.h"
+#include "sqratTable.h"
 #include "sqratClassType.h"
 #include "sqratMemberMethods.h"
 #include "sqratAllocator.h"
