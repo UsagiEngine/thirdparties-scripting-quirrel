@@ -300,6 +300,8 @@ typedef struct tagSQModuleImport {
 /*vm*/
 constexpr bool sq_is_base_stack_index(const SQInteger idx) { return idx >= 0; }
 constexpr bool sq_is_top_stack_index(const SQInteger idx) { return idx < 0; }
+constexpr SQInteger sq_base_stack_index(const SQUnsignedInteger idx) { return idx; }
+constexpr SQInteger sq_top_stack_index(const SQUnsignedInteger idx) { return -idx; }
 
 SQUIRREL_API HSQUIRRELVM sq_open(SQInteger initialstacksize);
 SQUIRREL_API HSQUIRRELVM sq_newthread(HSQUIRRELVM friendvm, SQInteger initialstacksize);

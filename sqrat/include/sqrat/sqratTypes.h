@@ -29,6 +29,10 @@
 #if !defined(_SQRAT_TYPES_H_)
 #define _SQRAT_TYPES_H_
 
+#include <type_traits>
+#include <format>
+#include <string>
+
 #include <squirrel.h>
 
 #include "sqratClassType.h"
@@ -171,32 +175,78 @@ struct Var<Func, SQRAT_STD::enable_if_t<is_callable_v<Func>>>
   }
 };
 
+// BoxedRef: Wraps fundamental types to allow pass-by-reference/pointer
+// semantics in scripts
+template <typename T, typename ActualT = std::remove_cv_t<T>>
+    requires std::is_fundamental_v<ActualT>
+struct BoxedRef
+{
+    ActualT value_proxy { };
+
+    BoxedRef() = default;
+
+    explicit BoxedRef(ActualT v)
+        : value_proxy(v)
+    {
+    }
+
+    std::string ToString() const { return std::format("{}", value_proxy); }
+};
 
 /// Used to get and push class instances to and from the stack as references
 template<class T>
-    // Prevent treating fundamental types as classes. Trying to get an instance
-    // from a reference to one would crash the vm.
-    requires (!std::is_fundamental_v<std::remove_cv_t<T>>)
 struct Var<T&> {
 
-    using ClassT = ClassType<remove_const_t<T>>;
+    using RawT = std::remove_cv_t<T>;
+    static constexpr bool IsFundamental = std::is_fundamental_v<RawT>;
+
+    // If T is fundamental (e.g., int), we look for BoxedRef<int>.
+    // If T is a class (e.g., MyClass), we look for MyClass.
+    using TargetType = decltype([] {
+        if constexpr(IsFundamental)
+            return BoxedRef<RawT>();
+        else
+            return RawT();
+    }());
+    using ClassT = ClassType<TargetType>;
+
     T& value; ///< The actual value of get operations
 
     /// Attempts to get the value off the stack at idx as the given type
-    Var(HSQUIRRELVM vm, SQInteger idx) : value(*ClassT::GetInstance(vm, idx)) { //-V522
+    Var(HSQUIRRELVM vm, SQInteger idx) : value(resolve(vm, idx)) { //-V522
+    }
+
+    // Helper to extract the reference from the stack
+    static T& resolve(HSQUIRRELVM vm, SQInteger idx) {
+        // ClassT::GetInstance returns TargetType*
+        TargetType* ptr = ClassT::GetInstance(vm, idx);
+
+        if constexpr (IsFundamental) {
+            // Unbox: return reference to the proxy value inside the wrapper
+            return ptr->value_proxy;
+        } else {
+            // Return reference to the class instance directly
+            return *ptr;
+        }
     }
 
     /// Called by Sqrat::PushVarR to put a class object on the stack
     static void push(HSQUIRRELVM vm, T& value) {
-        if (ClassT::hasClassData(vm))
-        {
-          if (SQRAT_STD::is_const<T>::value)
-            ClassT::PushInstanceCopy(vm, value);
-          else
-            ClassT::PushNativeInstance(vm, const_cast<remove_const_t<T>*>(&value));
+        if (!ClassT::hasClassData(vm)) {
+            SQRAT_ASSERTF(0, "Class/BoxedRef was not bound");
+            return;
         }
-        else
-            SQRAT_ASSERTF(0, "Class/typename was not bound");
+
+        if constexpr (IsFundamental) {
+            // Push a NEW BoxedRef containing the value
+            ClassT::PushInstanceCopy(vm, BoxedRef<RawT>(value));
+        } else {
+            // Standard Class behavior
+            if (SQRAT_STD::is_const<T>::value)
+                ClassT::PushInstanceCopy(vm, value);
+            else
+                ClassT::PushNativeInstance(vm, const_cast<RawT*>(&value));
+        }
     }
 
     static const SQChar * getVarTypeName() { return ClassT::ClassName().c_str(); }
@@ -208,24 +258,57 @@ struct Var<T&> {
 
 /// Used to get and push class instances to and from the stack as pointers
 template<class T>
-    // Similar to Var<T&>, don't treat pointers to fundamental types as class
-    // instances.
-    requires (!std::is_fundamental_v<std::remove_cv_t<T>>)
 struct Var<T*, SQRAT_STD::enable_if_t<!is_callable_v<T*>>> {
 
-    using ClassT = ClassType<remove_const_t<T>>;
-    T* value; ///< The actual value of get operations
+    using RawT = std::remove_cv_t<T>;
+    static constexpr bool IsFundamental = std::is_fundamental_v<RawT>;
+
+    using TargetType = decltype([] {
+        if constexpr(IsFundamental)
+            return BoxedRef<RawT>();
+        else
+            return RawT();
+    }());
+    using ClassT = ClassType<TargetType>;
+
+    T* value; ///< The pointer passed to the C++ function
 
     /// Attempts to get the value off the stack at idx as the given type
-    Var(HSQUIRRELVM vm, SQInteger idx) : value(ClassT::GetInstance(vm, idx, true)) {
+    Var(HSQUIRRELVM vm, SQInteger idx) : value(resolve(vm, idx)) {
+    }
+
+    static T* resolve(HSQUIRRELVM vm, SQInteger idx) {
+        // GetInstance(..., true) allows null if the stack value is null
+        TargetType* ptr = ClassT::GetInstance(vm, idx, true);
+
+        if (!ptr) return nullptr;
+
+        if constexpr (IsFundamental) {
+            // Unbox: return pointer to the proxy value
+            return &(ptr->value_proxy);
+        } else {
+            return ptr;
+        }
     }
 
     /// Called by Sqrat::PushVar to put a class object on the stack
     static void push(HSQUIRRELVM vm, T* value) {
-        if (ClassT::hasClassData(vm))
-          ClassT::PushNativeInstance(vm, const_cast<remove_const_t<T>*>(value));
-        else
-          SQRAT_ASSERTF(0, "Class/typename was not bound");
+        if (!ClassT::hasClassData(vm)) {
+            SQRAT_ASSERTF(0, "Class/BoxedRef was not bound");
+            return;
+        }
+
+        if constexpr (IsFundamental) {
+            if (value) {
+                // If we have a valid pointer, push a NEW BoxedRef copy of the value
+                ClassT::PushInstanceCopy(vm, BoxedRef<RawT>(*value));
+            } else {
+                sq_pushnull(vm);
+            }
+        } else {
+            // Standard Class behavior
+            ClassT::PushNativeInstance(vm, const_cast<RawT*>(value));
+        }
     }
 
     static const SQChar * getVarTypeName() { return ClassT::ClassName().c_str(); }
